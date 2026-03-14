@@ -183,7 +183,7 @@ AP 模式下 AI 自动运行，但你可以在任意时刻：
 
 具体建模过程、思考链、生成图表和最终论文详见 [`demo/`](demo/) 目录。**建议直接阅读 `demo/CUMCM_Workspace/latex/main.tex`（或编译后的 PDF）和 `demo/CUMCM_Workspace/memory/thought_process.md`，感受 AI 的完整推理过程。**
 
-！[测试论文的摘要页](AutoMCM-Pro/demo/CUMCM_Workspace/demo.png)
+![测试论文的摘要页](./demo/CUMCM_Workspace/demo.png)
 
 ---
 
