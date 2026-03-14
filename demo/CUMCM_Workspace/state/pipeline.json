@@ -1,0 +1,103 @@
+{
+  "session_id": "template",
+  "mode": "AP",
+  "contest": "",
+  "tcn": "",
+  "problem_choice": "",
+  "created_at": "",
+  "updated_at": "2026-03-14 18:08:54",
+  "current_stage": "complete",
+  "blocked_at": null,
+  "block_reason": "",
+  "total_reworks": 0,
+  "stages": {
+    "problem_analysis": {
+      "status": "approved",
+      "started_at": "2026-03-14 15:22:29",
+      "completed_at": "2026-03-14 15:24:05",
+      "approved_at": "2026-03-14 15:29:09",
+      "review_round": 1,
+      "notes": ""
+    },
+    "data_preprocessing": {
+      "status": "approved",
+      "started_at": "2026-03-14 15:29:32",
+      "completed_at": "2026-03-14 16:03:48",
+      "approved_at": "2026-03-14 16:10:27",
+      "review_round": 1,
+      "notes": ""
+    },
+    "model_1_build": {
+      "status": "approved",
+      "started_at": "2026-03-14 16:10:38",
+      "completed_at": "2026-03-14 16:21:35",
+      "approved_at": "2026-03-14 16:21:49",
+      "review_round": 1,
+      "notes": ""
+    },
+    "model_1_verify": {
+      "status": "approved",
+      "started_at": "2026-03-14 16:22:01",
+      "completed_at": "2026-03-14 16:25:12",
+      "approved_at": "2026-03-14 16:25:12",
+      "review_round": 1,
+      "notes": ""
+    },
+    "model_2_build": {
+      "status": "approved",
+      "started_at": "2026-03-14 16:25:36",
+      "completed_at": null,
+      "approved_at": "2026-03-14 16:41:47",
+      "review_round": 0,
+      "notes": ""
+    },
+    "model_2_verify": {
+      "status": "approved",
+      "started_at": "2026-03-14 16:41:47",
+      "completed_at": null,
+      "approved_at": "2026-03-14 16:41:47",
+      "review_round": 0,
+      "notes": ""
+    },
+    "model_3_build": {
+      "status": "approved",
+      "started_at": "2026-03-14 16:42:05",
+      "completed_at": null,
+      "approved_at": "2026-03-14 17:35:13",
+      "review_round": 0,
+      "notes": "按实际题目数启用"
+    },
+    "model_3_verify": {
+      "status": "approved",
+      "started_at": "2026-03-14 17:35:13",
+      "completed_at": null,
+      "approved_at": "2026-03-14 17:35:13",
+      "review_round": 0,
+      "notes": "按实际题目数启用"
+    },
+    "sensitivity_analysis": {
+      "status": "approved",
+      "started_at": "2026-03-14 17:35:13",
+      "completed_at": null,
+      "approved_at": "2026-03-14 17:44:20",
+      "review_round": 0,
+      "notes": ""
+    },
+    "latex_draft": {
+      "status": "approved",
+      "started_at": "2026-03-14 17:44:20",
+      "completed_at": null,
+      "approved_at": "2026-03-14 18:08:38",
+      "review_round": 0,
+      "notes": ""
+    },
+    "final_compile": {
+      "status": "approved",
+      "started_at": "2026-03-14 18:08:38",
+      "completed_at": null,
+      "approved_at": "2026-03-14 18:08:54",
+      "review_round": 0,
+      "notes": ""
+    }
+  }
+}

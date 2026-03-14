@@ -1,0 +1,119 @@
+%% MCM/ICM Practical Deliverable — One-Page Memo/Letter Template
+%% This document is compiled SEPARATELY from main.tex.
+%% Compile: xelatex memo.tex
+%%
+%% STRICT: must fit on exactly ONE page.
+%% Adjust \vspace and font sizes if content overflows.
+
+\documentclass[11pt, a4paper]{article}
+\usepackage[margin=2.2cm, top=1.8cm, bottom=1.8cm]{geometry}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{hyperref}
+\usepackage{parskip}
+
+\hypersetup{colorlinks=true, urlcolor=blue!70!black}
+
+% Suppress page number (single page document)
+\pagestyle{empty}
+
+% Color theme
+\definecolor{accentblue}{RGB}{31, 78, 147}
+\definecolor{lightgray}{RGB}{240, 240, 240}
+
+\begin{document}
+\setstretch{1.15}
+
+% ── Header ────────────────────────────────────────────────────────────────
+\noindent
+\begin{minipage}[t]{0.65\textwidth}
+    {\large\bfseries\color{accentblue} MCM/ICM Team \#0000000}\\[2pt]
+    {\small Problem [CHOICE] — [Contest Year]}
+\end{minipage}%
+\begin{minipage}[t]{0.35\textwidth}
+    \raggedleft
+    {\small\color{gray} \today}
+\end{minipage}
+
+\vspace{4pt}
+\noindent\rule{\linewidth}{1.5pt}
+\vspace{2pt}
+
+% ── Memo Header Block ─────────────────────────────────────────────────────
+\noindent
+\begin{tabular}{@{}ll}
+\textbf{TO:}   & [Recipient Name/Role, e.g., "The Executive Director, World Wildlife Fund"] \\[2pt]
+\textbf{FROM:} & MCM/ICM Team \#0000000 \\[2pt]
+\textbf{RE:}   & [Subject, e.g., "Optimal Conservation Strategy for Biodiversity Corridor Network"] \\[2pt]
+\textbf{DATE:} & \today \\
+\end{tabular}
+
+\noindent\rule{\linewidth}{0.4pt}
+\vspace{4pt}
+
+% ── Executive Summary ─────────────────────────────────────────────────────
+\noindent{\bfseries\color{accentblue} Executive Summary}
+
+\noindent
+[2–3 sentences in plain language. No equations, no jargon.
+State what was analyzed, what was found, and what is recommended.
+Example: "We analyzed X years of [data] to determine [objective].
+Our models identify [key insight], offering a [X\%] improvement over current practice.
+We recommend [specific action] to achieve [quantified goal]."]
+
+\vspace{6pt}
+
+% ── Key Findings ──────────────────────────────────────────────────────────
+\noindent{\bfseries\color{accentblue} Key Findings}
+
+\begin{itemize}[nosep, leftmargin=1.2em, label={\color{accentblue}$\bullet$}]
+    \item \textbf{[Finding 1]:} [Specific, quantified statement.
+          e.g., "Corridor A reduces species extinction risk by 34\% over 50 years."]
+    \item \textbf{[Finding 2]:} [Specific, quantified statement.]
+    \item \textbf{[Finding 3]:} [Specific, quantified statement.
+          e.g., "Implementation cost is estimated at \$X, yielding a benefit–cost ratio of Y."]
+\end{itemize}
+
+\vspace{6pt}
+
+% ── Recommendation ────────────────────────────────────────────────────────
+\noindent{\bfseries\color{accentblue} Recommendation}
+
+\noindent
+[1–2 sentences. Concrete and actionable.
+Example: "We strongly recommend adopting Strategy B, which achieves 87\% of the theoretical
+optimum at 40\% lower cost than Strategy A. Implementation should prioritize [region/phase]
+by [date/milestone]."]
+
+\vspace{6pt}
+
+% ── Optional: one small table or figure (remove if it doesn't fit) ─────────
+\noindent{\bfseries\color{accentblue} Summary Table}
+
+\noindent
+\begin{tabular}{p{3.8cm} p{2.8cm} p{2.8cm} p{3.5cm}}
+\toprule
+\textbf{Strategy} & \textbf{Effectiveness} & \textbf{Cost (\$M)} & \textbf{Recommendation} \\
+\midrule
+[Option A] & [metric] & [cost] & Not recommended \\
+[Option B] & [metric] & [cost] & \textbf{Recommended} \\
+[Option C] & [metric] & [cost] & Contingency \\
+\bottomrule
+\end{tabular}
+
+\vspace{8pt}
+
+% ── Footer ────────────────────────────────────────────────────────────────
+\noindent\rule{\linewidth}{0.4pt}
+{\small\color{gray}
+This memo summarizes findings from our full technical report submitted to the
+[MCM/ICM] competition. The complete model derivations, code, and sensitivity analysis
+are available in the accompanying paper.
+Team Control Number: \textbf{0000000} | Problem: \textbf{[CHOICE]}
+}
+
+\end{document}

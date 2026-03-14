@@ -1,0 +1,18 @@
+{
+  "title": "",
+  "phase": "init",
+  "phase_index": 0,
+  "problems": [],
+  "models": [],
+  "iterations": 0,
+  "created_at": "",
+  "updated_at": "",
+  "completed_tasks": [],
+  "pending_tasks": [
+    "Phase 1: 破题分析与文献调研",
+    "Phase 2: 数据预处理",
+    "Phase 2: 问题建模与验证",
+    "Phase 3: LaTeX 论文撰写",
+    "Phase 5: 编译 PDF"
+  ]
+}

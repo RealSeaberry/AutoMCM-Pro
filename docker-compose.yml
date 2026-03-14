@@ -1,0 +1,69 @@
+version: "3.9"
+
+# =============================================================================
+#  CUMCM-Master  Docker Compose
+#
+#  服务：
+#    cumcm-agent   — Python 3.11 + 全套开源科学计算库 + TeX Live（LaTeX 编译）
+#    mind-reader   — 实时内心独白 Web UI，端口 8080
+#
+#  启动：docker compose up --build
+#  开箱即用，无需任何 License 配置。
+# =============================================================================
+
+services:
+
+  # ─────────────────────────────────────────────────
+  #  cumcm-agent: 计算核心
+  #  Python 3.11 + TeX Live + 全开源科学计算库
+  # ─────────────────────────────────────────────────
+  cumcm-agent:
+    build:
+      context: ./docker/cumcm-agent
+      dockerfile: Dockerfile
+    container_name: cumcm-agent
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    environment:
+      - PYTHONPATH=/workspace
+      - MPLBACKEND=Agg          # matplotlib 无头模式
+      - PYTHONUNBUFFERED=1
+    command: tail -f /dev/null
+    networks:
+      - cumcm-net
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────
+  #  mind-reader: AI 内心独白实时渲染器
+  #  监听 memory/ 目录变化，通过 WebSocket 推送到浏览器
+  # ─────────────────────────────────────────────────
+  mind-reader:
+    build:
+      context: ./docker/mind-reader
+      dockerfile: Dockerfile
+    container_name: mind-reader
+    volumes:
+      # 只读挂载 memory 目录，获取实时思考记录
+      - ./CUMCM_Workspace/memory:/memory:ro
+      # 挂载整个 CUMCM_Workspace 以显示文件树状态
+      - ./CUMCM_Workspace:/workspace:ro
+    ports:
+      - "8080:8080"
+    environment:
+      - THOUGHT_FILE=/memory/thought_process.md
+      - EVAL_FILE=/memory/evaluation_log.md
+      - ITERATION_FILE=/memory/iteration.json
+      - WORKSPACE_DIR=/workspace
+    networks:
+      - cumcm-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+networks:
+  cumcm-net:
+    driver: bridge

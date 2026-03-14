@@ -1,0 +1,415 @@
+%% MCM/ICM Paper Template — based on mcmthesis
+%% Compile: xelatex main.tex (run 3 times for cross-references + BibTeX)
+%%
+%% mcmthesis package: https://github.com/latexstudio-org/mcmthesis
+%% If not installed: tlmgr install mcmthesis
+%%
+%% !! FILL IN: tcn (Team Control Number) and problem (A/B/C/D/E/F) !!
+
+\documentclass{mcmthesis}
+
+%% ── Team Configuration ─────────────────────────────────────────────────
+\mcmsetup{
+    tcn          = {0000000},     %% <── 7-digit Team Control Number
+    problem      = {A},           %% <── Problem choice: A B C D E F
+    sheet        = true,
+    titleinsheet = true,
+    keywordsinsheet = true,
+    titlepage    = false,
+    abstract     = true,
+}
+
+%% ── Packages ────────────────────────────────────────────────────────────
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{enumerate}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{setspace}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+\usepackage{natbib}
+\usepackage{appendix}
+\usepackage{microtype}           % better text justification
+\usepackage{siunitx}             % units formatting
+\usepackage{cleveref}            % smart cross-references
+
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc, fit}
+\hypersetup{colorlinks=true, linkcolor=blue!70!black, citecolor=green!50!black,
+            urlcolor=blue!70!black}
+
+%% ── Code Style ──────────────────────────────────────────────────────────
+\definecolor{backcolour}{rgb}{0.97,0.97,0.97}
+\definecolor{codeblue}{rgb}{0.13,0.29,0.53}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+
+\lstdefinestyle{pythonstyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegray}\itshape,
+    keywordstyle=\color{codeblue}\bfseries,
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breaklines=true, captionpos=b,
+    numbers=left, numbersep=5pt,
+    numberstyle=\tiny\color{codegray},
+    showstringspaces=false, tabsize=4,
+    frame=single, rulecolor=\color{black!20},
+    language=Python
+}
+
+%% ── Custom Commands ─────────────────────────────────────────────────────
+\newtheorem{assumption}{Assumption}
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+
+\newcommand{\vect}[1]{\boldsymbol{#1}}
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+\newcommand{\abs}[1]{\left|#1\right|}
+\newcommand{\E}[1]{\mathbb{E}\!\left[#1\right]}
+\newcommand{\Prob}[1]{\mathbb{P}\!\left(#1\right)}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argmax}{arg\,max}
+
+\setstretch{1.15}
+
+%% ── Paper Title & Keywords ───────────────────────────────────────────────
+\title{[Paper Title — Concise and Descriptive]}
+
+\begin{document}
+
+%% ══════════════════════════════════════════════════════════════════
+%%  SUMMARY  (most critical section — 1 page maximum)
+%%  mcmthesis renders this on the Summary Sheet automatically.
+%% ══════════════════════════════════════════════════════════════════
+\begin{abstract}
+
+% Paragraph 1: Problem Context (2–3 sentences)
+[State the problem context. What is being optimized/predicted/analyzed?
+What are the key challenges?]
+
+% Paragraph 2: Models Developed (4–6 sentences)
+To address these challenges, we develop [N] interconnected models.
+For \textbf{Task 1}, we employ [Model Name], formulated as
+$\min_{x} f(x)$ subject to $g(x) \leq 0$, solved via [algorithm].
+For \textbf{Task 2}, we construct a [Model Name] to [objective].
+[Continue for each task.]
+
+% Paragraph 3: Key Results (bullet form preferred)
+Our analysis yields the following key findings:
+\begin{itemize}[nosep]
+    \item \textbf{Task 1}: [Specific quantitative result, e.g., optimal value = X.XX with 94.2\% confidence]
+    \item \textbf{Task 2}: [Specific result]
+    \item \textbf{Sensitivity}: The model remains robust to ±20\% perturbations in [key parameter].
+\end{itemize}
+
+% Paragraph 4: Highlight sentence
+[The most impressive result in one sentence — make judges want to read on.]
+
+\end{abstract}
+
+\keywords{[keyword1]; [keyword2]; [keyword3]; [keyword4]; [keyword5]}
+
+\maketitle
+
+%% ── Table of Contents ────────────────────────────────────────────────────
+\tableofcontents
+\newpage
+
+%% ══════════════════════════════════════════════════════════════════
+%%  1. INTRODUCTION
+%% ══════════════════════════════════════════════════════════════════
+\section{Introduction}
+
+\subsection{Background and Motivation}
+
+[Macro-level context: why does this problem matter in the real world?
+Cite 2–3 sources here to establish credibility.]
+
+\subsection{Literature Review}
+
+[Summarize existing approaches to this class of problems in 1–2 paragraphs.
+Identify the gap your approach addresses. Cite ≥5 papers.]
+
+Recent work by \cite{ref1} demonstrated that [key insight].
+However, [limitation of existing work], which motivates the present study.
+
+\subsection{Problem Restatement}
+
+Given [input data/parameters], we seek to:
+\begin{enumerate}
+    \item [Task 1: formal mathematical statement]
+    \item [Task 2: formal mathematical statement]
+    \item [Task 3: formal mathematical statement]
+\end{enumerate}
+
+\subsection{Overview of Our Approach}
+
+Figure~\ref{fig:flowchart} illustrates the overall modeling framework.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    box/.style={rectangle, rounded corners=4pt, draw=blue!60, fill=blue!8,
+                text width=3cm, align=center, minimum height=0.85cm, font=\small},
+    arrow/.style={-Stealth, thick, blue!60}
+]
+    \node[box] (data)   {Data Acquisition \& EDA};
+    \node[box, right=1.4cm of data]  (m1)  {Model 1\\ [Task 1]};
+    \node[box, right=1.4cm of m1]    (m2)  {Model 2\\ [Task 2]};
+    \node[box, right=1.4cm of m2]    (out) {Results \&\\ Sensitivity};
+
+    \draw[arrow] (data) -- (m1);
+    \draw[arrow] (m1)   -- (m2);
+    \draw[arrow] (m2)   -- (out);
+\end{tikzpicture}
+\caption{Overall modeling framework.}
+\label{fig:flowchart}
+\end{figure}
+
+%% ══════════════════════════════════════════════════════════════════
+%%  2. ASSUMPTIONS AND JUSTIFICATIONS
+%% ══════════════════════════════════════════════════════════════════
+\section{Assumptions and Justifications}
+
+To ensure mathematical tractability while preserving fidelity to the real-world scenario, we adopt the following assumptions:
+
+\begin{assumption}
+    [Assumption statement.]
+    \textit{Justification:} [Physical/empirical reason. Cite if possible.]
+\end{assumption}
+
+\begin{assumption}
+    [Assumption statement.]
+    \textit{Justification:} [...]
+\end{assumption}
+
+% Add 5–8 assumptions total
+
+%% ══════════════════════════════════════════════════════════════════
+%%  3. NOTATION
+%% ══════════════════════════════════════════════════════════════════
+\section{Notation}
+
+Table~\ref{tab:notation} summarizes the principal mathematical notation used throughout this paper.
+
+\begin{table}[H]
+\centering
+\caption{Principal notation.}
+\label{tab:notation}
+\begin{tabular}{p{2.2cm} p{7cm} p{2.5cm}}
+\toprule
+\textbf{Symbol} & \textbf{Definition} & \textbf{Unit / Range} \\
+\midrule
+$x_i$       & [definition]          & [unit] \\
+$y_j$       & [definition]          & [unit] \\
+$\alpha$    & [parameter meaning]   & $[0, 1]$ \\
+$T$         & Time horizon          & days \\
+$n$         & Number of [entities]  & $\mathbb{Z}^+$ \\
+% Add more rows as needed
+\bottomrule
+\end{tabular}
+\end{table}
+
+%% ══════════════════════════════════════════════════════════════════
+%%  4. MODEL DEVELOPMENT
+%% ══════════════════════════════════════════════════════════════════
+\section{Model Development}
+
+% ────────── 4.1 Sub-problem 1 ──────────────────────────────────
+\subsection{Task 1: [Model Name] for [Objective]}
+
+\subsubsection{Mechanism Analysis}
+
+[Describe the physical/mathematical mechanism. Why does this model structure fit the problem?]
+
+\subsubsection{Mathematical Formulation}
+
+We formulate Task~1 as a [type of problem]:
+
+\begin{equation}
+    \min_{\vect{x} \in \mathcal{X}} \quad f(\vect{x}) = \sum_{i=1}^{n} w_i \phi(x_i)
+    \label{eq:obj_task1}
+\end{equation}
+subject to:
+\begin{align}
+    g_i(\vect{x}) &\leq 0, \quad i = 1, \ldots, m   \label{eq:ineq} \\
+    h_j(\vect{x}) &=    0, \quad j = 1, \ldots, p   \label{eq:eq}   \\
+    \vect{x}      &\geq \vect{0}                     \label{eq:nn}
+\end{align}
+
+where $\phi(\cdot)$ denotes [function meaning] and $\mathcal{X}$ is [feasible set description].
+
+\subsubsection{Algorithm Design}
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwIn{[Inputs]}
+\KwOut{[Outputs]}
+Initialize [parameters]\;
+\While{not converged}{
+    Compute [step]\;
+    Update [variables]\;
+    Check termination criterion\;
+}
+\Return{[result]}\;
+\caption{[Algorithm Name] for Task 1}
+\end{algorithm}
+
+\subsubsection{Results and Analysis}
+
+Table~\ref{tab:result_task1} and Figure~\ref{fig:result_task1} present the key results.
+
+\begin{table}[H]
+\centering
+\caption{Task 1 results summary.}
+\label{tab:result_task1}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Metric} & \textbf{Value} & \textbf{Unit} & \textbf{Benchmark} \\
+\midrule
+[Metric 1] & [value] & [unit] & [comparison] \\
+[Metric 2] & [value] & [unit] & [comparison] \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{images/fig01_task1_result.png}
+    \caption{[Figure caption with specific observation about the result.]}
+    \label{fig:result_task1}
+\end{figure}
+
+[Interpret the results quantitatively. What does Figure~\ref{fig:result_task1} show?
+Compare to any benchmarks. Discuss implications.]
+
+% ────────── 4.2 Sub-problem 2 ──────────────────────────────────
+\subsection{Task 2: [Model Name] for [Objective]}
+
+[Same structure: Mechanism → Formulation → Algorithm → Results]
+
+% ────────── 4.3 Sub-problem 3 ──────────────────────────────────
+\subsection{Task 3: [Model Name] for [Objective]}
+
+[Same structure. Add/remove subsections as needed.]
+
+%% ══════════════════════════════════════════════════════════════════
+%%  5. SENSITIVITY ANALYSIS
+%% ══════════════════════════════════════════════════════════════════
+\section{Sensitivity Analysis}
+
+To assess the robustness of our models, we conduct a systematic sensitivity analysis on the key parameters identified in \cref{tab:notation}.
+
+\subsection{Parameter Perturbation Study}
+
+We vary [parameter $\alpha$] by $\{-50\%, -20\%, -10\%, 0\%, +10\%, +20\%, +50\%\}$ while holding other parameters at their baseline values.
+
+\begin{table}[H]
+\centering
+\caption{Sensitivity of [objective] to perturbations in $\alpha$.}
+\label{tab:sensitivity}
+\begin{tabular}{cccc}
+\toprule
+$\Delta\alpha$ & Objective Value & Change (\%) & Feasible? \\
+\midrule
+$-50\%$ & & & \\
+$-20\%$ & & & \\
+$-10\%$ & & & \\
+$0\%$   & & 0.0 & \checkmark \\
+$+10\%$ & & & \\
+$+20\%$ & & & \\
+$+50\%$ & & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+[Interpret: the model is [robust/sensitive] to changes in $\alpha$, with a [X\%] change in objective for a [Y\%] parameter perturbation.]
+
+%% ══════════════════════════════════════════════════════════════════
+%%  6. STRENGTHS AND WEAKNESSES
+%% ══════════════════════════════════════════════════════════════════
+\section{Strengths and Weaknesses}
+
+\subsection{Strengths}
+\begin{itemize}
+    \item \textbf{[Strength 1]:} [Quantitative justification, e.g., "achieves X\% improvement over baseline Y".]
+    \item \textbf{[Strength 2]:} [...]
+    \item \textbf{[Strength 3]:} [Interpretability, scalability, or generalizability.]
+\end{itemize}
+
+\subsection{Limitations}
+\begin{itemize}
+    \item \textbf{[Limitation 1]:} [Honest statement. e.g., "Assumption 3 may not hold when..."]
+    \item \textbf{[Limitation 2]:} [Computational complexity or data requirement.]
+\end{itemize}
+
+\subsection{Future Extensions}
+
+[2–3 sentences on how the model could be extended with additional data or relaxed assumptions.]
+
+%% ══════════════════════════════════════════════════════════════════
+%%  7. CONCLUSIONS
+%% ══════════════════════════════════════════════════════════════════
+\section{Conclusions}
+
+This paper presented [N] models to address the [contest problem] challenge:
+
+\begin{enumerate}
+    \item \textbf{Task 1}: [1–2 sentence result summary with specific numbers.]
+    \item \textbf{Task 2}: [1–2 sentence result summary.]
+    \item \textbf{Task 3}: [1–2 sentence result summary.]
+\end{enumerate}
+
+[Broader implication paragraph: what does this mean for [real-world application]?]
+
+%% ══════════════════════════════════════════════════════════════════
+%%  REFERENCES
+%% ══════════════════════════════════════════════════════════════════
+\bibliographystyle{apalike}
+\begin{thebibliography}{99}
+
+\bibitem{ref1}
+Author, A., \& Author, B. (Year). Title of paper. \textit{Journal Name}, \textit{Vol}(Issue), pages. \url{https://doi.org/...}
+
+\bibitem{ref2}
+Author, C. (Year). \textit{Book Title}. Publisher.
+
+% Add ≥8 references
+
+\end{thebibliography}
+
+%% ══════════════════════════════════════════════════════════════════
+%%  APPENDICES
+%% ══════════════════════════════════════════════════════════════════
+\begin{appendices}
+
+\section{Source Code}
+
+\subsection{Data Exploration (\texttt{01\_data\_eda.py})}
+
+\begin{lstlisting}[style=pythonstyle, caption={Data exploration and preprocessing.}]
+# Insert src/01_data_eda.py here
+\end{lstlisting}
+
+\subsection{Task 1 Model (\texttt{02\_model\_problem1.py})}
+
+\begin{lstlisting}[style=pythonstyle, caption={Task 1 model implementation.}]
+# Insert src/02_model_problem1.py here
+\end{lstlisting}
+
+\end{appendices}
+
+\end{document}

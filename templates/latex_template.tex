@@ -1,0 +1,352 @@
+%% CUMCM-Master LaTeX 模板
+%% 适用于全国大学生数学建模竞赛
+%% 编译方式：xelatex main.tex（建议运行两次以更新交叉引用）
+
+\documentclass[12pt, a4paper]{article}
+
+%% ======================== 宏包导入 ========================
+\usepackage{ctex}                    % 中文支持
+\usepackage[margin=2.5cm]{geometry}  % 页边距
+\usepackage{amsmath, amssymb, amsthm}% 数学公式
+\usepackage{graphicx}                % 插图
+\usepackage{subcaption}              % 子图
+\usepackage{booktabs}                % 三线表
+\usepackage{longtable}               % 长表格
+\usepackage{array}                   % 表格增强
+\usepackage{multirow}                % 跨行单元格
+\usepackage{float}                   % 浮动体控制 [H]
+\usepackage{hyperref}                % 超链接
+\usepackage{enumerate}               % 列表
+\usepackage{enumitem}                % 列表定制
+\usepackage{listings}                % 代码高亮
+\usepackage{xcolor}                  % 颜色
+\usepackage{tikz}                    % 流程图
+\usepackage{pgfplots}                % 数据可视化
+\usepackage{caption}                 % 标题定制
+\usepackage{fancyhdr}                % 页眉页脚
+\usepackage{setspace}                % 行距
+\usepackage{natbib}                  % 参考文献
+\usepackage{appendix}                % 附录
+
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc}
+
+%% ======================== 代码样式 ========================
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{codeblue}{rgb}{0.13,0.29,0.53}
+\definecolor{backcolour}{rgb}{0.97,0.97,0.97}
+
+\lstdefinestyle{pythonstyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegray}\itshape,
+    keywordstyle=\color{codeblue}\bfseries,
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    numberstyle=\tiny\color{codegray},
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=4,
+    frame=single,
+    rulecolor=\color{black!20},
+    language=Python
+}
+
+%% ======================== 页面样式 ========================
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small 全国大学生数学建模竞赛}
+\fancyhead[R]{\small \leftmark}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\captionsetup{font=small, labelfont=bf}
+\setstretch{1.5}
+
+%% ======================== 自定义命令 ========================
+\newtheorem{assumption}{假设}[section]
+\newtheorem{definition}{定义}[section]
+\newtheorem{theorem}{定理}[section]
+
+\newcommand{\prob}[1]{\mathbf{P}\left(#1\right)}
+\newcommand{\E}[1]{\mathbb{E}\left[#1\right]}
+\newcommand{\norm}[1]{\left\|#1\right\|}
+
+%% ======================== 文档信息 ========================
+\title{
+    \vspace{-1cm}
+    {\Large \textbf{CUMCM 20XX 竞赛题目}} \\[0.5em]
+    {\large 全国大学生数学建模竞赛参赛论文}
+}
+\author{}
+\date{}
+
+%% ======================== 正文开始 ========================
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+%% ---------------------- 摘要 ----------------------
+\begin{abstract}
+\noindent
+（在此撰写摘要。摘要需概括：研究背景、所建立的数学模型（列出模型名称）、核心求解方法、主要结论与数值结果。建议300字以内，突出创新点与关键数值。）
+
+\vspace{1em}
+\noindent\textbf{关键词：}数学规划；%
+% 在此补充关键词，用分号分隔，3~5个
+\end{abstract}
+
+\newpage
+\tableofcontents
+\newpage
+
+%% ==================== 1. 问题重述 ====================
+\section{问题重述}
+
+（在此精炼赛题核心内容。需提炼题目的研究对象、给定条件和核心目标，不超过半页。避免直接复制原题，需用自己的语言重新表述，体现对题意的精准把握。）
+
+%% ==================== 2. 问题背景与需要解决的问题 ====================
+\section{问题背景与需要解决的问题}
+
+\subsection{问题背景}
+
+（阐述题目所处的宏观背景，说明该问题的现实意义与研究价值，1~2段。）
+
+\subsection{需要解决的问题}
+
+\begin{enumerate}[label=\textbf{问题\arabic*：}, leftmargin=*]
+    \item （问题一描述）
+    \item （问题二描述）
+    \item （问题三描述，按实际题目增删）
+\end{enumerate}
+
+%% ==================== 3. 问题分析 ====================
+\section{问题分析}
+
+\subsection{问题一分析}
+
+（分析问题一的数学本质、难点，说明选用某数学模型的理由，并简述求解思路。）
+
+% 流程图示例（根据实际内容修改）
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    box/.style={rectangle, rounded corners, draw=black, fill=blue!10,
+                text width=3.5cm, align=center, minimum height=0.8cm},
+    arrow/.style={-Stealth, thick}
+]
+    \node[box] (input)  {读取数据};
+    \node[box, right=1.5cm of input]  (preprocess) {数据预处理};
+    \node[box, right=1.5cm of preprocess] (model) {建立模型};
+    \node[box, right=1.5cm of model]  (solve) {求解};
+    \node[box, right=1.5cm of solve]  (output) {输出结果};
+
+    \draw[arrow] (input) -- (preprocess);
+    \draw[arrow] (preprocess) -- (model);
+    \draw[arrow] (model) -- (solve);
+    \draw[arrow] (solve) -- (output);
+\end{tikzpicture}
+\caption{问题一求解流程图}
+\label{fig:flow1}
+\end{figure}
+
+\subsection{问题二分析}
+
+（同上，按实际问题数量增删小节。）
+
+%% ==================== 4. 模型假设 ====================
+\section{模型假设}
+
+为使模型具有可操作性，结合题目的实际背景，本文提出以下假设：
+
+\begin{enumerate}[label=\textbf{假设\arabic*：}, leftmargin=*]
+    \item （假设内容）。\\
+          \textit{依据：}（简述该假设的物理/数学合理性。）
+
+    \item （假设内容）。\\
+          \textit{依据：}（简述理由。）
+
+    \item （假设内容）。\\
+          \textit{依据：}（简述理由。）
+
+    % 共5~7条假设
+\end{enumerate}
+
+%% ==================== 5. 符号说明 ====================
+\section{符号说明}
+
+本文所用主要符号及其含义如表~\ref{tab:symbols}~所示。
+
+\begin{table}[H]
+\centering
+\caption{主要符号说明}
+\label{tab:symbols}
+\begin{tabular}{cll}
+\toprule
+\textbf{符号} & \textbf{含义} & \textbf{单位/量纲} \\
+\midrule
+$x_i$  & （变量含义）     & （单位） \\
+$y_j$  & （变量含义）     & （单位） \\
+$\alpha$ & （参数含义）   & 无量纲 \\
+$T$    & 时间周期         & s \\
+$n$    & 样本数量         & 个 \\
+% 根据实际情况增删行
+\bottomrule
+\end{tabular}
+\end{table}
+
+%% ==================== 6. 模型的建立与求解 ====================
+\section{模型的建立与求解}
+
+\subsection{问题一：（模型名称）的建立与求解}
+
+\subsubsection{机理分析}
+
+（阐述问题的物理/数学机理，建立变量之间的定量关系。）
+
+\subsubsection{模型建立}
+
+（写出数学模型，包括目标函数和约束条件。）
+
+\begin{equation}
+    \min_{x} \quad f(x) = \sum_{i=1}^{n} w_i x_i
+    \label{eq:obj1}
+\end{equation}
+
+\begin{equation}
+    \text{s.t.} \quad
+    \begin{cases}
+        g_i(x) \leq 0, & i = 1, \ldots, m \\
+        h_j(x) = 0,    & j = 1, \ldots, p \\
+        x_i \geq 0,    & i = 1, \ldots, n
+    \end{cases}
+    \label{eq:constraint1}
+\end{equation}
+
+\subsubsection{求解算法}
+
+（描述所使用的求解算法，如内点法、遗传算法、差分进化等。说明算法参数设置。）
+
+\subsubsection{求解结果}
+
+（展示求解结果，用表格和图形呈现。）
+
+\begin{table}[H]
+\centering
+\caption{问题一求解结果}
+\label{tab:result1}
+\begin{tabular}{cccc}
+\toprule
+\textbf{指标} & \textbf{数值} & \textbf{单位} & \textbf{说明} \\
+\midrule
+（指标名）  & （数值）  & （单位）  & （说明） \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{images/fig01_result1.png}
+    \caption{（图题）}
+    \label{fig:result1}
+\end{figure}
+
+（对图表结果进行分析，说明结果的实际意义。）
+
+\subsection{问题二：（模型名称）的建立与求解}
+
+（同上，按实际情况填写。）
+
+%% ==================== 7. 模型的分析与检验 ====================
+\section{模型的分析与检验}
+
+\subsection{灵敏度分析}
+
+对模型中的关键参数进行灵敏度分析，考察参数变化对结果的影响。设参数 $\alpha$ 在基准值 $\alpha_0$ 附近变化 $\pm 10\%$、$\pm 20\%$，观察目标函数值的变化如表~\ref{tab:sensitivity}~所示。
+
+\begin{table}[H]
+\centering
+\caption{灵敏度分析结果}
+\label{tab:sensitivity}
+\begin{tabular}{ccc}
+\toprule
+$\alpha$ 变化幅度 & 目标函数值 & 变化率 \\
+\midrule
+$-20\%$ & & \\
+$-10\%$ & & \\
+基准值   & & 0\% \\
+$+10\%$ & & \\
+$+20\%$ & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{模型验证}
+
+（对模型进行交叉验证或与已知结果对比，验证模型的可靠性。）
+
+%% ==================== 8. 模型的评价、改进与推广 ====================
+\section{模型的评价、改进与推广}
+
+\subsection{模型优点}
+
+\begin{enumerate}
+    \item （优点一：如计算效率、模型精度等）
+    \item （优点二）
+    \item （优点三）
+\end{enumerate}
+
+\subsection{模型局限性}
+
+\begin{enumerate}
+    \item （局限一：如某些假设可能不完全成立）
+    \item （局限二）
+\end{enumerate}
+
+\subsection{改进方向与推广}
+
+（提出1~2个可行的模型改进方向，说明如何将本模型推广至更一般的场景。）
+
+%% ==================== 9. 参考文献 ====================
+\section*{参考文献}
+\addcontentsline{toc}{section}{参考文献}
+
+\begin{thebibliography}{99}
+
+\bibitem{ref1}
+（作者姓名）.（文献标题）[J/M/C].（期刊/出版社）,（年份）,（卷号）(（期号）):（页码）.
+
+\bibitem{ref2}
+Author A, Author B. Title of the paper[J]. \textit{Journal Name}, Year, Vol(Issue): Pages. DOI: xxx.
+
+% 至少8条参考文献，中英文各至少2条
+
+\end{thebibliography}
+
+%% ==================== 附录 ====================
+\appendix
+\section{核心代码}
+
+\subsection{数据预处理（\texttt{01\_data\_eda.py}）}
+
+\begin{lstlisting}[style=pythonstyle, caption={数据探索与预处理}]
+# 在此插入 src/01_data_eda.py 的完整代码
+\end{lstlisting}
+
+\subsection{问题一求解（\texttt{02\_problem1\_model.py}）}
+
+\begin{lstlisting}[style=pythonstyle, caption={问题一建模与求解}]
+# 在此插入 src/02_problem1_model.py 的完整代码
+\end{lstlisting}
+
+% 按需添加更多代码附录
+
+\end{document}

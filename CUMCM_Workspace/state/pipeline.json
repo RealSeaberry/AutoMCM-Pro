@@ -1,0 +1,26 @@
+{
+  "session_id": "template",
+  "mode": "",
+  "contest": "",
+  "tcn": "",
+  "problem_choice": "",
+  "created_at": "",
+  "updated_at": "",
+  "current_stage": "problem_analysis",
+  "blocked_at": null,
+  "block_reason": "",
+  "total_reworks": 0,
+  "stages": {
+    "problem_analysis":   {"status": "not_started", "started_at": null, "completed_at": null, "approved_at": null, "review_round": 0, "notes": ""},
+    "data_preprocessing": {"status": "not_started", "started_at": null, "completed_at": null, "approved_at": null, "review_round": 0, "notes": ""},
+    "model_1_build":      {"status": "not_started", "started_at": null, "completed_at": null, "approved_at": null, "review_round": 0, "notes": ""},
+    "model_1_verify":     {"status": "not_started", "started_at": null, "completed_at": null, "approved_at": null, "review_round": 0, "notes": ""},
+    "model_2_build":      {"status": "not_started", "started_at": null, "completed_at": null, "approved_at": null, "review_round": 0, "notes": ""},
+    "model_2_verify":     {"status": "not_started", "started_at": null, "completed_at": null, "approved_at": null, "review_round": 0, "notes": ""},
+    "model_3_build":      {"status": "skipped",     "started_at": null, "completed_at": null, "approved_at": null, "review_round": 0, "notes": "按实际题目数启用"},
+    "model_3_verify":     {"status": "skipped",     "started_at": null, "completed_at": null, "approved_at": null, "review_round": 0, "notes": "按实际题目数启用"},
+    "sensitivity_analysis": {"status": "not_started", "started_at": null, "completed_at": null, "approved_at": null, "review_round": 0, "notes": ""},
+    "latex_draft":        {"status": "not_started", "started_at": null, "completed_at": null, "approved_at": null, "review_round": 0, "notes": ""},
+    "final_compile":      {"status": "not_started", "started_at": null, "completed_at": null, "approved_at": null, "review_round": 0, "notes": ""}
+  }
+}

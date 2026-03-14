@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python scripts/pipeline_manager.py init --mode AP --contest CUMCM 2>&1)",
+      "Bash(python scripts/pipeline_manager.py start-stage problem_analysis 2>&1)",
+      "Bash(python -c \"import pdfplumber; pdf = pdfplumber.open\\('CUMCM_Workspace/data/A题.pdf'\\); [print\\(page.extract_text\\(\\)\\) for page in pdf.pages]; pdf.close\\(\\)\" 2>&1)",
+      "Bash(pip install:*)"
+    ]
+  }
+}

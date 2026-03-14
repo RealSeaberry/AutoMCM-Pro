@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CUMCM-Master · Mind-Reader</title>
+
+<!-- KaTeX for math rendering -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+  onload="initKaTeX()"></script>
+
+<!-- marked.js for Markdown -->
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+
+<!-- highlight.js for code -->
+<link rel="stylesheet"
+  href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
+
+<style>
+/* ═══════════════════════════════════════════════
+   Base & Variables
+═══════════════════════════════════════════════ */
+:root {
+  --bg:          #0d0f14;
+  --bg-panel:    #13161e;
+  --bg-card:     #1a1d27;
+  --bg-hover:    #1f2333;
+  --border:      #252838;
+  --border-glow: #4f6ef7;
+
+  --text:        #e2e8f0;
+  --text-dim:    #7c8499;
+  --text-faint:  #404660;
+
+  --accent:      #4f6ef7;    /* 蓝紫 — 主色 */
+  --accent2:     #7c5cfc;    /* 深紫 */
+  --green:       #4ade80;
+  --amber:       #fbbf24;
+  --red:         #f87171;
+  --cyan:        #22d3ee;
+  --pink:        #f472b6;
+
+  --radius:      8px;
+  --font-mono:   'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+  --font-ui:     'Inter', system-ui, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════════
+   Layout
+═══════════════════════════════════════════════ */
+.layout {
+  display: grid;
+  grid-template-rows: 48px 1fr;
+  grid-template-columns: 220px 1fr 300px;
+  grid-template-areas:
+    "header header header"
+    "sidebar main eval";
+  height: 100vh;
+}
+
+/* ═══════════════════════════════════════════════
+   Header / Status Bar
+═══════════════════════════════════════════════ */
+header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  gap: 16px;
+  position: relative;
+  z-index: 10;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.3px;
+  color: var(--text);
+}
+
+.logo-icon {
+  width: 24px; height: 24px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+}
+
+.status-pills {
+  display: flex;
+  gap: 8px;
+  margin-left: 8px;
+}
+
+.pill {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  border: 1px solid;
+}
+.pill-phase  { color: var(--accent); border-color: var(--accent); background: rgba(79,110,247,.1); }
+.pill-iter   { color: var(--amber);  border-color: var(--amber);  background: rgba(251,191,36,.1); }
+
+.header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ws-indicator {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--text-dim);
+}
+.ws-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--text-faint);
+  transition: background .4s;
+}
+.ws-dot.connected { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+.clock { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); }
+
+/* ═══════════════════════════════════════════════
+   Sidebar — File Tree
+═══════════════════════════════════════════════ */
+.sidebar {
+  grid-area: sidebar;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 12px 0;
+}
+
+.sidebar-title {
+  padding: 0 14px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.tree-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 14px;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: default;
+  border-radius: 0;
+  transition: background .15s, color .15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tree-item:hover { background: var(--bg-hover); color: var(--text); }
+.tree-item.dir   { color: var(--accent); font-weight: 600; margin-top: 4px; }
+.tree-item.child { padding-left: 28px; }
+.tree-icon { font-size: 11px; flex-shrink: 0; }
+
+.file-size {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+}
+
+/* ═══════════════════════════════════════════════
+   Main — Thought Process
+═══════════════════════════════════════════════ */
+.main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.panel-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.thinking-badge {
+  display: flex; align-items: center; gap: 5px;
+  padding: 2px 8px;
+  background: rgba(79,110,247,.12);
+  border: 1px solid rgba(79,110,247,.3);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity .4s;
+}
+.thinking-badge.active { opacity: 1; }
+
+.thinking-dots span {
+  animation: blink 1.2s infinite;
+  display: inline-block;
+}
+.thinking-dots span:nth-child(2) { animation-delay: .2s; }
+.thinking-dots span:nth-child(3) { animation-delay: .4s; }
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0; }
+  40% { opacity: 1; }
+}
+
+.thought-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 32px;
+  scroll-behavior: smooth;
+}
+
+/* ── Markdown 内容样式 ── */
+.md-content h1 {
+  font-size: 22px; font-weight: 800; color: var(--text);
+  border-bottom: 2px solid var(--border-glow);
+  padding-bottom: 8px; margin-bottom: 20px; margin-top: 0;
+}
+.md-content h2 {
+  font-size: 17px; font-weight: 700; color: var(--accent);
+  margin: 28px 0 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.md-content h2::before {
+  content: '▶';
+  font-size: 10px;
+  color: var(--accent2);
+}
+.md-content h3 {
+  font-size: 14px; font-weight: 700; color: var(--cyan);
+  margin: 20px 0 8px;
+}
+.md-content p {
+  margin: 0 0 12px;
+  color: var(--text);
+  line-height: 1.8;
+}
+.md-content ul, .md-content ol {
+  padding-left: 20px;
+  margin-bottom: 12px;
+}
+.md-content li {
+  margin-bottom: 5px;
+  color: var(--text);
+}
+.md-content strong { color: var(--amber); font-weight: 700; }
+.md-content em     { color: var(--pink);  font-style: italic; }
+.md-content a      { color: var(--accent); text-decoration: none; }
+.md-content a:hover { text-decoration: underline; }
+
+.md-content code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: rgba(79,110,247,.12);
+  color: var(--cyan);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.md-content pre {
+  background: #0a0c10;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 16px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+.md-content pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+.md-content blockquote {
+  border-left: 3px solid var(--accent2);
+  padding: 8px 16px;
+  margin: 12px 0;
+  background: rgba(124,92,252,.06);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  color: var(--text-dim);
+  font-style: italic;
+}
+.md-content hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 24px 0;
+}
+.md-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+  font-size: 13px;
+}
+.md-content th {
+  background: var(--bg-card);
+  color: var(--accent);
+  font-weight: 700;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+.md-content td {
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.md-content tr:hover td { background: var(--bg-hover); }
+
+/* KaTeX display math */
+.katex-display {
+  overflow-x: auto;
+  padding: 4px 0;
+}
+
+/* ── 新内容高亮动画 ── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.new-content { animation: fadeInUp .4s ease forwards; }
+
+/* ── 光标闪烁（表示正在写入）── */
+.cursor-blink {
+  display: inline-block;
+  width: 2px; height: 14px;
+  background: var(--accent);
+  margin-left: 2px;
+  vertical-align: middle;
+  animation: cursorBlink .8s step-end infinite;
+}
+@keyframes cursorBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+/* ═══════════════════════════════════════════════
+   Right Panel — Evaluation Log
+═══════════════════════════════════════════════ */
+.eval-panel {
+  grid-area: eval;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.eval-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+/* ── State Cards ── */
+.state-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.state-card-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 8px;
+}
+
+/* Progress bar */
+.progress-wrap {
+  background: var(--bg);
+  border-radius: 999px;
+  height: 5px;
+  overflow: hidden;
+  margin: 6px 0;
+}
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 999px;
+  transition: width .6s cubic-bezier(.4,0,.2,1);
+}
+
+.phase-label {
+  font-size: 11px; font-weight: 700;
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+
+/* Task list */
+.task-list { list-style: none; }
+.task-item {
+  display: flex; align-items: center; gap: 7px;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+.task-item:last-child { border-bottom: none; }
+.task-item.done { color: var(--text-faint); text-decoration: line-through; }
+.task-check {
+  width: 14px; height: 14px; border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid var(--text-faint);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px;
+}
+.task-check.done {
+  background: var(--green);
+  border-color: var(--green);
+  color: #000;
+}
+
+/* Eval log entries */
+.eval-entry {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-dim);
+  animation: fadeInUp .4s ease;
+}
+.eval-entry-ts {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+
+/* ═══════════════════════════════════════════════
+   Scrollbar
+═══════════════════════════════════════════════ */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+
+/* ═══════════════════════════════════════════════
+   Toast notification
+═══════════════════════════════════════════════ */
+#toast-container {
+  position: fixed; bottom: 24px; right: 24px;
+  z-index: 999;
+  display: flex; flex-direction: column; gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  padding: 8px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glow);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text);
+  animation: toastIn .3s ease;
+  box-shadow: 0 4px 20px rgba(79,110,247,.2);
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Pipeline stage rows ── */
+.pipe-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 0;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  border-bottom: 1px solid var(--border);
+}
+.pipe-row:last-child { border-bottom: none; }
+.pipe-sym {
+  width: 16px; text-align: center; flex-shrink: 0;
+  font-size: 12px;
+}
+.pipe-sym.approved  { color: var(--green); }
+.pipe-sym.pending   { color: var(--amber); }
+.pipe-sym.rework    { color: var(--red); }
+.pipe-sym.active    { color: var(--accent); }
+.pipe-sym.skipped   { color: var(--text-faint); }
+.pipe-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pipe-name.current  { color: var(--accent); font-weight: 700; }
+.pipe-name.approved { color: var(--text-faint); text-decoration: line-through; }
+
+@keyframes checkpointPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251,191,36,0); }
+  50%       { box-shadow: 0 0 12px 2px rgba(251,191,36,.25); }
+}
+
+/* ═══════════════════════════════════════════════
+   Responsive
+═══════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: 48px 1fr;
+    grid-template-areas: "header" "main";
+  }
+  .sidebar, .eval-panel { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ── Header ── -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🧠</div>
+      CUMCM-Master&nbsp;<span style="color:var(--text-faint);font-weight:400">Mind-Reader</span>
+    </div>
+    <div class="status-pills">
+      <span class="pill pill-phase" id="pill-phase">INIT</span>
+      <span class="pill pill-iter"  id="pill-iter">迭代 #0</span>
+    </div>
+    <div class="header-right">
+      <div class="ws-indicator">
+        <div class="ws-dot" id="ws-dot"></div>
+        <span id="ws-label">连接中…</span>
+      </div>
+      <div class="clock" id="clock">00:00:00</div>
+    </div>
+  </header>
+
+  <!-- ── Sidebar: File Tree ── -->
+  <nav class="sidebar">
+    <div class="sidebar-title">工作区</div>
+    <div id="tree-root"></div>
+  </nav>
+
+  <!-- ── Main: Thought Process ── -->
+  <main class="main">
+    <div class="panel-header">
+      <span class="panel-title">💭 内心独白 · thought_process.md</span>
+      <div class="thinking-badge" id="thinking-badge">
+        <span>AI 正在思考</span>
+        <span class="thinking-dots">
+          <span>·</span><span>·</span><span>·</span>
+        </span>
+      </div>
+    </div>
+    <div class="thought-scroll" id="thought-scroll">
+      <div class="md-content" id="thought-content">
+        <p style="color:var(--text-faint);font-style:italic">
+          等待 AI 开始思考…<span class="cursor-blink"></span>
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <!-- ── Right Panel: State + Eval Log ── -->
+  <aside class="eval-panel">
+    <div class="panel-header">
+      <span class="panel-title">📊 状态 &amp; 反馈</span>
+    </div>
+    <div class="eval-scroll">
+
+      <!-- Contest badge (MCM/CUMCM) -->
+      <div class="state-card" id="contest-card" style="display:none">
+        <div class="state-card-title">竞赛信息</div>
+        <div id="contest-info" style="font-size:12px;line-height:1.9;color:var(--text)"></div>
+      </div>
+
+      <!-- State card -->
+      <div class="state-card">
+        <div class="state-card-title">当前阶段</div>
+        <div class="phase-label" id="state-phase">—</div>
+        <div class="progress-wrap">
+          <div class="progress-bar" id="state-progress" style="width:0%"></div>
+        </div>
+        <div style="font-size:11px;color:var(--text-faint);margin-top:4px" id="state-title">
+          —
+        </div>
+      </div>
+
+      <!-- Task list -->
+      <div class="state-card">
+        <div class="state-card-title">任务进度</div>
+        <ul class="task-list" id="task-list">
+          <li class="task-item">
+            <span class="task-check">○</span>
+            <span>等待初始化…</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- GitOps Pipeline Board -->
+      <div class="state-card" id="pipeline-card">
+        <div class="state-card-title" id="pipeline-mode-label">GitOps 流水线</div>
+        <div id="pipeline-stages"></div>
+      </div>
+
+      <!-- Checkpoint Alert -->
+      <div id="checkpoint-alert" style="display:none;
+        background:rgba(251,191,36,.08);border:1px solid var(--amber);
+        border-radius:var(--radius);padding:12px;margin-bottom:10px;
+        animation:checkpointPulse 1.5s ease infinite;">
+        <div style="font-size:11px;font-weight:700;color:var(--amber);letter-spacing:.5px;margin-bottom:6px">
+          ⏸ CHECKPOINT — 等待人类审查
+        </div>
+        <div id="checkpoint-stage" style="font-size:12px;color:var(--text);font-family:var(--font-mono)"></div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:4px">
+          请阅读 <code>state/review_request.md</code><br>
+          填写 [APPROVED] 或 [REWORK] 后输入「继续」
+        </div>
+      </div>
+
+      <!-- Human Signal Flash -->
+      <div id="human-signal" style="display:none;
+        border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;
+        font-size:12px;font-weight:700;text-align:center;">
+      </div>
+
+      <!-- Eval log -->
+      <div class="state-card-title" style="margin-top:4px;padding:0 0 6px">
+        用户反馈记录
+      </div>
+      <div id="eval-entries">
+        <div class="eval-entry">
+          <div class="eval-entry-ts">暂无用户反馈</div>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+</div>
+
+<div id="toast-container"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     JavaScript
+════════════════════════════════════════════════════════════════ -->
+<script>
+// ── KaTeX 初始化 ────────────────────────────────────────────
+function initKaTeX() {
+  renderMathInElement(document.body, {
+    delimiters: [
+      { left: '$$', right: '$$', display: true  },
+      { left: '$',  right: '$',  display: false },
+      { left: '\\[', right: '\\]', display: true },
+      { left: '\\(', right: '\\)', display: false },
+    ],
+    throwOnError: false
+  });
+}
+
+// ── marked.js 配置 ──────────────────────────────────────────
+marked.setOptions({
+  highlight: (code, lang) => {
+    if (lang && hljs.getLanguage(lang)) {
+      return hljs.highlight(code, { language: lang }).value;
+    }
+    return hljs.highlightAuto(code).value;
+  },
+  breaks: true,
+  gfm: true,
+});
+
+// ── State ───────────────────────────────────────────────────
+const PHASES = ['init','phase1_analysis','phase2_coding',
+                'phase3_writing','phase4_feedback','phase5_compile','complete'];
+
+let ws;
+let thoughtContent = '';
+let isThinking = false;
+let thinkingTimer = null;
+
+// ── Clock ────────────────────────────────────────────────────
+setInterval(() => {
+  document.getElementById('clock').textContent =
+    new Date().toTimeString().slice(0, 8);
+}, 1000);
+
+// ── Toast ────────────────────────────────────────────────────
+function toast(msg, duration = 3000) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), duration);
+}
+
+// ── Render Markdown + Math ────────────────────────────────────
+function renderMd(markdown) {
+  const html = marked.parse(markdown || '');
+  return html;
+}
+
+function renderThought(content, animate = false) {
+  const container = document.getElementById('thought-content');
+  const html = renderMd(content);
+
+  if (animate) {
+    container.classList.remove('new-content');
+    void container.offsetWidth;
+    container.classList.add('new-content');
+  }
+
+  container.innerHTML = html;
+
+  // Apply highlight.js to code blocks
+  container.querySelectorAll('pre code').forEach(el => {
+    hljs.highlightElement(el);
+  });
+
+  // Apply KaTeX if loaded
+  if (window.renderMathInElement) {
+    try {
+      renderMathInElement(container, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true  },
+          { left: '$',  right: '$',  display: false },
+          { left: '\\[', right: '\\]', display: true },
+          { left: '\\(', right: '\\)', display: false },
+        ],
+        throwOnError: false,
+      });
+    } catch(e) {}
+  }
+
+  // Auto-scroll to bottom
+  const scroll = document.getElementById('thought-scroll');
+  scroll.scrollTop = scroll.scrollHeight;
+}
+
+// ── Thinking indicator ────────────────────────────────────────
+function setThinking(active) {
+  const badge = document.getElementById('thinking-badge');
+  if (active) {
+    badge.classList.add('active');
+    isThinking = true;
+  } else {
+    badge.classList.remove('active');
+    isThinking = false;
+  }
+}
+
+function bumpThinkingTimer() {
+  setThinking(true);
+  clearTimeout(thinkingTimer);
+  thinkingTimer = setTimeout(() => setThinking(false), 4000);
+}
+
+// ── Render State ─────────────────────────────────────────────
+function renderState(state) {
+  if (!state) return;
+
+  // Pills
+  const phaseIdx = PHASES.indexOf(state.phase);
+  const phasePct = phaseIdx < 0 ? 0 : Math.round((phaseIdx / (PHASES.length - 1)) * 100);
+
+  document.getElementById('pill-phase').textContent =
+    (state.phase || 'INIT').toUpperCase().replace(/_/g, ' ');
+  document.getElementById('pill-iter').textContent =
+    `迭代 #${state.iterations || 0}`;
+
+  // Contest info card (MCM-specific)
+  const contestCard = document.getElementById('contest-card');
+  const contestInfo = document.getElementById('contest-info');
+  if (state.mode === 'mcm' && (state.tcn || state.problem_choice)) {
+    contestCard.style.display = '';
+    const memoLabel = {
+      agent: '🤖 Agent 撰写',
+      student: '✍️ 同学手写',
+      '': '—'
+    }[state.memo_mode || ''] || '—';
+    contestCard.querySelector('.state-card-title').textContent =
+      state.contest_type === 'ICM' ? 'ICM 竞赛信息' : 'MCM 竞赛信息';
+    contestInfo.innerHTML =
+      `<span style="color:var(--text-faint)">队伍控制号</span> <strong style="color:var(--cyan);font-family:var(--font-mono)">${escHtml(state.tcn||'—')}</strong><br>` +
+      `<span style="color:var(--text-faint)">题目选项  </span> <strong style="color:var(--amber)">Problem ${escHtml(state.problem_choice||'—')}</strong><br>` +
+      `<span style="color:var(--text-faint)">实用文件  </span> <span style="color:var(--pink)">${memoLabel}</span>`;
+  } else {
+    contestCard.style.display = 'none';
+  }
+
+  // State card
+  document.getElementById('state-phase').textContent =
+    state.phase || '—';
+  document.getElementById('state-progress').style.width = phasePct + '%';
+  document.getElementById('state-title').textContent =
+    state.title ? `📌 ${state.title}` : '—';
+
+  // Task list
+  const pending  = state.pending_tasks  || [];
+  const completed = state.completed_tasks || [];
+  const taskList = document.getElementById('task-list');
+  taskList.innerHTML = '';
+
+  completed.forEach(t => {
+    const li = document.createElement('li');
+    li.className = 'task-item done';
+    li.innerHTML = `<span class="task-check done">✓</span><span>${escHtml(t)}</span>`;
+    taskList.appendChild(li);
+  });
+
+  pending.forEach(t => {
+    const li = document.createElement('li');
+    li.className = 'task-item';
+    li.innerHTML = `<span class="task-check"></span><span>${escHtml(t)}</span>`;
+    taskList.appendChild(li);
+  });
+}
+
+// ── Render Pipeline Board ─────────────────────────────────────
+const PIPE_SYMS = {
+  not_started: { sym: '·', cls: '' },
+  in_progress: { sym: '▶', cls: 'active' },
+  pending_review: { sym: '⏸', cls: 'pending' },
+  approved:    { sym: '✓', cls: 'approved' },
+  rework:      { sym: '↩', cls: 'rework' },
+  skipped:     { sym: '—', cls: 'skipped' },
+};
+
+function renderPipeline(pipeline) {
+  if (!pipeline || !pipeline.stages) return;
+
+  const modeLabel = pipeline.mode === 'MANUAL' ? '👤 MANUAL' : '🤖 AP';
+  document.getElementById('pipeline-mode-label').textContent =
+    `GitOps · ${modeLabel} · ${pipeline.contest || '—'}`;
+
+  const container = document.getElementById('pipeline-stages');
+  container.innerHTML = '';
+
+  const current = pipeline.current_stage || '';
+
+  Object.entries(pipeline.stages || {}).forEach(([name, info]) => {
+    const { sym, cls } = PIPE_SYMS[info.status] || { sym: '?', cls: '' };
+    const isCurrent = name === current;
+    const row = document.createElement('div');
+    row.className = 'pipe-row';
+    row.innerHTML =
+      `<span class="pipe-sym ${cls}">${sym}</span>` +
+      `<span class="pipe-name ${isCurrent ? 'current' : (info.status === 'approved' ? 'approved' : '')}">${name.replace(/_/g, ' ')}</span>` +
+      (info.review_round > 0 ? `<span style="font-size:9px;color:var(--red)">×${info.review_round}</span>` : '');
+    container.appendChild(row);
+  });
+
+  // Checkpoint alert
+  const alert = document.getElementById('checkpoint-alert');
+  const stageEl = document.getElementById('checkpoint-stage');
+  if (pipeline.blocked_at) {
+    alert.style.display = '';
+    stageEl.textContent = `阶段: ${current}`;
+  } else {
+    alert.style.display = 'none';
+  }
+}
+
+// ── Handle Human Signals ──────────────────────────────────────
+function handleHumanSignal(signal) {
+  const el = document.getElementById('human-signal');
+  if (signal === 'APPROVED') {
+    el.style.display = '';
+    el.style.background = 'rgba(74,222,128,.12)';
+    el.style.border = '1px solid var(--green)';
+    el.style.color = 'var(--green)';
+    el.textContent = '✓ 人类已批准 — AI 即将继续';
+    toast('✅ [APPROVED] 检测到，AI 继续执行');
+  } else if (signal === 'REWORK') {
+    el.style.display = '';
+    el.style.background = 'rgba(248,113,113,.12)';
+    el.style.border = '1px solid var(--red)';
+    el.style.color = 'var(--red)';
+    el.textContent = '↩ 人类请求 Rework — AI 将重新执行';
+    toast('↩ [REWORK] 检测到，请查看修改意见');
+  }
+  setTimeout(() => { el.style.display = 'none'; }, 8000);
+}
+
+// ── Render Eval Log ───────────────────────────────────────────
+function renderEval(content) {
+  if (!content || content.trim() === '（暂无用户反馈）') return;
+  const container = document.getElementById('eval-entries');
+
+  // Split by ## [ entries
+  const sections = content.split(/(?=## \[)/).filter(s => s.trim());
+  container.innerHTML = '';
+
+  sections.forEach(sec => {
+    if (!sec.includes('##')) return;
+    const el = document.createElement('div');
+    el.className = 'eval-entry';
+    el.innerHTML = renderMd(sec.trim());
+    container.prepend(el);  // newest first
+  });
+}
+
+// ── Render File Tree ──────────────────────────────────────────
+const FILE_ICONS = {
+  'py': '🐍', 'tex': '📄', 'pdf': '📕', 'png': '🖼', 'jpg': '🖼',
+  'md': '📝',  'json': '📋', 'csv': '📊', 'xlsx': '📊', 'txt': '📃',
+  'sh': '⚡',  'ipynb': '📓',
+};
+
+function fileIcon(name, isDir) {
+  if (isDir) return '📁';
+  const ext = name.split('.').pop().toLowerCase();
+  return FILE_ICONS[ext] || '📄';
+}
+
+function fmtSize(bytes) {
+  if (bytes < 1024) return bytes + 'B';
+  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + 'K';
+  return (bytes/1024/1024).toFixed(1) + 'M';
+}
+
+function renderTree(tree) {
+  const root = document.getElementById('tree-root');
+  root.innerHTML = '';
+
+  (tree || []).forEach(node => {
+    const dir = document.createElement('div');
+    dir.className = 'tree-item dir';
+    dir.innerHTML = `<span class="tree-icon">${fileIcon(node.name, true)}</span>${escHtml(node.name)}/`;
+    root.appendChild(dir);
+
+    (node.children || []).forEach(child => {
+      const f = document.createElement('div');
+      f.className = 'tree-item child';
+      f.innerHTML = `
+        <span class="tree-icon">${fileIcon(child.name, child.is_dir)}</span>
+        <span>${escHtml(child.name)}</span>
+        ${child.is_dir ? '' : `<span class="file-size">${fmtSize(child.size)}</span>`}
+      `;
+      root.appendChild(f);
+    });
+  });
+}
+
+// ── Load initial snapshot ─────────────────────────────────────
+async function loadSnapshot() {
+  try {
+    const res  = await fetch('/api/snapshot');
+    const data = await res.json();
+
+    if (data.thought && data.thought.trim()) {
+      thoughtContent = data.thought;
+      renderThought(thoughtContent, false);
+    }
+    if (data.eval) renderEval(data.eval);
+    if (data.state) renderState(data.state);
+    if (data.tree)     renderTree(data.tree);
+    if (data.pipeline) renderPipeline(data.pipeline);
+  } catch (e) {
+    console.warn('Snapshot load failed', e);
+  }
+}
+
+// ── WebSocket ─────────────────────────────────────────────────
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/ws`);
+
+  ws.onopen = () => {
+    document.getElementById('ws-dot').className   = 'ws-dot connected';
+    document.getElementById('ws-label').textContent = '实时同步';
+    toast('🔗 已连接到 Mind-Reader');
+  };
+
+  ws.onclose = () => {
+    document.getElementById('ws-dot').className   = 'ws-dot';
+    document.getElementById('ws-label').textContent = '已断开';
+    setTimeout(connect, 3000);
+  };
+
+  ws.onerror = () => ws.close();
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+
+    if (msg.type === 'thought') {
+      const prev = thoughtContent;
+      thoughtContent = msg.content;
+
+      // Only animate if content actually changed
+      if (prev !== thoughtContent) {
+        bumpThinkingTimer();
+        renderThought(thoughtContent, true);
+        toast('💭 内心独白已更新');
+      }
+    }
+
+    else if (msg.type === 'eval') {
+      renderEval(msg.content);
+      toast('📝 用户反馈已记录');
+    }
+
+    else if (msg.type === 'state') {
+      renderState(msg.state);
+    }
+
+    else if (msg.type === 'tree') {
+      renderTree(msg.tree);
+    }
+
+    else if (msg.type === 'pipeline') {
+      renderPipeline(msg.pipeline);
+    }
+
+    else if (msg.type === 'review') {
+      // Optionally show review content in a future tab
+    }
+
+    else if (msg.type === 'human_signal') {
+      handleHumanSignal(msg.signal);
+    }
+  };
+
+  // Keep-alive ping every 25s
+  setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN) ws.send('ping');
+  }, 25000);
+}
+
+// ── Escape HTML ───────────────────────────────────────────────
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Init ──────────────────────────────────────────────────────
+loadSnapshot().then(connect);
+</script>
+</body>
+</html>
