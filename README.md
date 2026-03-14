@@ -22,7 +22,9 @@
 - **判断建模方向是否符合题意与现实物理**
 - **发现模型假设中的潜在缺陷**
 - **提供领域直觉与经验性修正**
-![web ui应用](./demo/CUMCM_Workspace/demo-2.png)
+
+  
+
 ---
 
 ## 这个 Skill 能做什么
@@ -89,6 +91,7 @@ not_started → in_progress → pending_review → approved
 ### Mind-Reader 实时思维可视化
 
 基于 FastAPI + WebSocket 的实时 Web UI（`http://localhost:8080`），渲染 AI 在 `memory/thought_process.md` 中记录的推理过程，支持 KaTeX 数学公式、代码高亮和流水线进度看板。
+![web ui应用](./demo/CUMCM_Workspace/demo-2.png)
 
 ---
 
