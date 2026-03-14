@@ -97,8 +97,8 @@ not_started → in_progress → pending_review → approved
 ### 第一步：安装 Skill
 
 ```bash
-git clone https://github.com/your-repo/CUMCM-MASTER
-cd CUMCM-MASTER
+git clone https://github.com/RealSeaberry/AutoMCM-Pro
+cd AutoMCM-Pro
 bash install.sh
 ```
 
@@ -108,7 +108,7 @@ bash install.sh
 
 ```bash
 # 拷贝工作目录（保持源码干净，每次竞赛独立拷贝）
-cp -r CUMCM-MASTER /path/to/my-contest-2025
+cp -r AutoMCM-Pro /path/to/my-contest-2025
 cd /path/to/my-contest-2025
 
 # 放入题目文件和附件数据
@@ -183,6 +183,8 @@ AP 模式下 AI 自动运行，但你可以在任意时刻：
 
 具体建模过程、思考链、生成图表和最终论文详见 [`demo/`](demo/) 目录。**建议直接阅读 `demo/CUMCM_Workspace/latex/main.tex`（或编译后的 PDF）和 `demo/CUMCM_Workspace/memory/thought_process.md`，感受 AI 的完整推理过程。**
 
+![测试论文的摘要页](./demo/CUMCM_Workspace/demo.png)
+
 ---
 
 ## 安装
@@ -197,8 +199,8 @@ AP 模式下 AI 自动运行，但你可以在任意时刻：
 ### 安装命令
 
 ```bash
-git clone https://github.com/your-repo/CUMCM-MASTER
-cd CUMCM-MASTER
+git clone https://github.com/RealSeaberry/AutoMCM-Pro
+cd AutoMCM-Pro
 bash install.sh          # 符号链接安装（推荐，git pull 自动更新）
 bash install.sh --copy   # 文件拷贝安装（无 git 环境）
 bash install.sh --check  # 检查安装状态
@@ -207,7 +209,7 @@ bash install.sh --check  # 检查安装状态
 ### 更新
 
 ```bash
-cd CUMCM-MASTER
+cd AutoMCM-Pro
 git pull   # 符号链接安装下，Skill 自动生效，无需重装
 ```
 
@@ -369,8 +371,8 @@ A FastAPI + WebSocket web UI at `http://localhost:8080` renders the AI's thought
 ### Step 1: Install the Skill
 
 ```bash
-git clone https://github.com/your-repo/CUMCM-MASTER
-cd CUMCM-MASTER
+git clone https://github.com/RealSeaberry/AutoMCM-Pro
+cd AutoMCM-Pro
 bash install.sh
 ```
 
@@ -379,7 +381,7 @@ After installation, `/auto-mcm`, `/cumcm-master`, and `/mcm-master` are availabl
 ### Step 2: Prepare a Working Directory
 
 ```bash
-cp -r CUMCM-MASTER /path/to/my-contest-2025
+cp -r AutoMCM-Pro /path/to/my-contest-2025
 cd /path/to/my-contest-2025
 
 cp problem.pdf CUMCM_Workspace/data/
@@ -461,8 +463,8 @@ For the full thought process, generated figures, and the final paper, see the [`
 ### Install
 
 ```bash
-git clone https://github.com/your-repo/CUMCM-MASTER
-cd CUMCM-MASTER
+git clone https://github.com/RealSeaberry/AutoMCM-Pro
+cd AutoMCM-Pro
 bash install.sh          # symlink install (recommended — git pull auto-updates)
 bash install.sh --copy   # copy install (for non-git environments)
 bash install.sh --check  # check installation status
