@@ -327,6 +327,34 @@ python scripts/pipeline_manager.py parallel-start \
 
 ---
 
+## 【竞赛工作区版本控制】
+
+初始化时加 `--git` 即可开启，流水线随后在每次 `advance` 时自动快照。
+
+```bash
+# 初始化（开启版本控制）
+python scripts/pipeline_manager.py init \
+  --mode AP --contest CUMCM --choice A --git
+
+# 手动查询（也可直接使用 contest_git.py）
+python scripts/pipeline_manager.py contest-git log
+python scripts/pipeline_manager.py contest-git status
+python scripts/pipeline_manager.py contest-git diff draft-v1 draft-v2
+python scripts/pipeline_manager.py contest-git tag final-v2 "第二轮修改后最终版"
+```
+
+| 事件 | Git 动作 |
+|------|---------|
+| `advance <stage>` | `feat(<stage>): approved [AP]` |
+| `advance` 第 N 轮 rework 后 | `fix(<stage>): rework rN approved` |
+| `rework <stage>` | empty commit `rework(<stage>): start round N` |
+| `latex_draft` approved | 自动打 tag `draft-v1` / `draft-v2`… |
+| `final_compile` approved | 自动打 tag `final-v1` / `final-v2`… |
+
+> 竞赛 Git 仓库位于 `CUMCM_Workspace/.git`，与 AutoMCM-Pro 工具仓库完全独立。
+
+---
+
 ## 【绝对禁止（摘要）】
 
 所有规则详见 `AutoMCM_SOP.md § 7`。核心禁令：

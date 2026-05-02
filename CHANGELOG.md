@@ -6,6 +6,42 @@ Version scheme: [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.3.0] — 2026-05-02
+
+### Added
+
+#### Contest Git — 竞赛工作区版本控制
+- New script `scripts/contest_git.py` — manages an independent Git repo inside
+  `CUMCM_Workspace/` (separate from the AutoMCM-Pro tool repo):
+  - `init` — creates the workspace repo with `.gitignore` (LaTeX intermediates
+    excluded) and an initial commit; configures git identity automatically
+  - `auto_commit(stage, mode, round_n)` — called by `pipeline_manager.py` after
+    each `advance`; commits staged changes with semantic message
+    `feat(<stage>): approved [AP]` or `fix(<stage>): rework rN approved`
+  - `rework_start(stage, round_n)` — empty commit marking the rework entry point
+    in the log, called on `rework`
+  - `milestone_tag(name, message)` — annotated tag (overwrites if exists)
+  - Auto-tagging: `latex_draft` approved → `draft-v1`, `final_compile` approved
+    → `final-v1` (increments with review rounds)
+  - Read-only queries: `log(n, oneline)`, `diff(ref1, ref2, stat_only)`,
+    `status()`, `list_tags()`
+  - Standalone CLI: `python scripts/contest_git.py init|log|diff|status|tag|tags`
+- `pipeline_manager.py` integration:
+  - `init --git` flag: enables contest git and calls `contest_git.init()`
+  - `git_enabled` field persisted in `pipeline.json`
+  - `advance` auto-commits on every stage approval
+  - `rework` records a rework-start empty commit
+  - New `contest-git` subcommand group exposes all read/tag operations:
+    `log`, `diff`, `status`, `tag`, `tags`
+- `auto-mcm/SKILL.md`: new **【竞赛工作区版本控制】** section with event/git-action
+  table and usage examples
+
+### Changed
+- `pipeline_manager.py` docstring updated to list `contest-git` subcommands
+- `pipeline_manager.py` `init` subparser: `--git` flag documented
+
+---
+
 ## [0.2.0] — 2026-05-03
 
 ### Added

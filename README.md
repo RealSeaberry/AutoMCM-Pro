@@ -5,7 +5,7 @@
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/code)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Demo: CUMCM 2025A](https://img.shields.io/badge/Demo-CUMCM%202025A-orange)](demo/)
-[![Version](https://img.shields.io/badge/version-v0.2.0-brightgreen)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v0.3.0-brightgreen)](CHANGELOG.md)
 
 ---
 
@@ -131,6 +131,24 @@ python scripts/pipeline_manager.py parallel-all-done model_1_verify model_2_veri
 ```
 
 在 Claude Code 中，主 Agent 在**同一条消息**里同时调用多个 Agent tool，各自负责一个子问题的 build → verify → checkpoint 全流程，最后由主 Agent 汇总进入灵敏度分析。
+
+### 竞赛工作区版本控制
+
+初始化时加 `--git` 后，流水线在每次 `advance`（阶段通过）时自动提交快照，支持多轮迭代历史追踪与草稿对比：
+
+```bash
+# 开启版本控制
+python scripts/pipeline_manager.py init --mode AP --contest CUMCM --choice A --git
+
+# 查询历史 / 对比草稿
+python scripts/pipeline_manager.py contest-git log
+python scripts/pipeline_manager.py contest-git diff draft-v1 draft-v2
+python scripts/pipeline_manager.py contest-git status
+python scripts/pipeline_manager.py contest-git tag final-v2 "第二轮修改后最终版"
+```
+
+竞赛 Git 仓库位于 `CUMCM_Workspace/.git`，与 AutoMCM-Pro 工具仓库完全独立。  
+`latex_draft` approved → 自动打 `draft-v1` tag；`final_compile` approved → 自动打 `final-v1` tag。
 
 ---
 
@@ -279,7 +297,8 @@ AutoMCM-Pro/
 ├── init_gitops.sh               # 交互式初始化引导
 ├── docker-compose.yml           # 容器化环境（Python + TeX Live）
 ├── scripts/
-│   ├── pipeline_manager.py      # GitOps 状态机 CLI（含 parallel-start/status/all-done）
+│   ├── pipeline_manager.py      # GitOps 状态机 CLI（含 parallel/contest-git 命令）
+│   ├── contest_git.py           # 竞赛工作区版本控制（CUMCM_Workspace/.git）
 │   ├── draw_image.py            # OpenAI gpt-image-2 图像生成（含 Codex 认证检测）
 │   ├── compile_pdf.py           # 跨平台 LaTeX 编译（Python）
 │   ├── setup_workspace.py       # 工作区目录初始化
@@ -435,6 +454,23 @@ python scripts/pipeline_manager.py parallel-all-done model_1_verify model_2_veri
 ```
 
 In Claude Code, the orchestrator Agent launches N sub-Agents simultaneously (one per sub-problem) in a single message, each running the full build → verify → checkpoint cycle independently. The orchestrator advances to sensitivity analysis only after `parallel-all-done` exits 0.
+
+### Contest Workspace Version Control
+
+Add `--git` to `init` to enable an independent Git repo inside `CUMCM_Workspace/` that auto-snapshots at every pipeline stage approval — enabling multi-round draft comparison and rollback:
+
+```bash
+# Enable version control
+python scripts/pipeline_manager.py init --mode AP --contest CUMCM --choice A --git
+
+# Query history / compare drafts
+python scripts/pipeline_manager.py contest-git log
+python scripts/pipeline_manager.py contest-git diff draft-v1 draft-v2
+python scripts/pipeline_manager.py contest-git tag final-v2 "post-revision final"
+```
+
+The `CUMCM_Workspace/.git` repo is fully independent from the AutoMCM-Pro tool repo.  
+`latex_draft` approved → auto-tag `draft-v1`; `final_compile` approved → auto-tag `final-v1`.
 
 ---
 
