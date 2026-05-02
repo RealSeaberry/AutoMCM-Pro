@@ -167,6 +167,14 @@ python scripts/pipeline_manager.py start-stage latex_draft
 1. 使用对应模板（CUMCM → `latex_template.tex`，MCM → `mcm_template.tex`）
 2. 按论文结构逐章填写，每章三轮自审（见各自 SKILL 的写作规范）
 3. 插入图表时，**确认对应图片文件物理存在** `latex/images/*.png`
+   - 数据/结果图 → 必须来自已运行的 Python 代码
+   - 流程图 / 概念插图 → 使用 `/draw-image` skill 生成：
+     ```bash
+     python scripts/draw_image.py \
+       --prompt "..." \
+       --output "CUMCM_Workspace/latex/images/figXX_name.png" \
+       --quality high
+     ```
 4. **发起 Checkpoint ⑤**
 
 ---
