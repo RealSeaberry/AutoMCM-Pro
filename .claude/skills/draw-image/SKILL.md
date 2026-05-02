@@ -87,6 +87,33 @@ export OPENAI_API_KEY=sk-proj-...   # Codex CLI 检测到此变量后切换为 A
 
 ---
 
+## Agent 调用前置检查（必须执行）
+
+在生成任何图像前，**先运行 `--check`**：
+
+```bash
+python scripts/draw_image.py --check
+```
+
+| 输出 | 含义 | Agent 应该做什么 |
+|------|------|----------------|
+| `method=api_key  available=True` | OPENAI_API_KEY 已设置 | ✅ 直接调用 `--prompt` 生成 |
+| `method=codex_oauth  available=True` | Codex 已登录，但脚本不能直接用 OAuth | ⚡ 改用 Codex CLI：`$imagegen <prompt>` |
+| `method=none  available=False`（退出码 2） | 无任何认证 | ⏭ **跳过**图像生成；在 LaTeX 中留 `\missingfigure{描述}` 占位，继续流水线 |
+
+> 退出码 2 = "跳过"信号，**不是错误**。流水线不应因此中断。
+
+```bash
+# 示例：优雅跳过
+python scripts/draw_image.py --check || {
+  if [ $? -eq 2 ]; then
+    echo "[draw_image] 跳过 — 无认证，继续流水线"
+  fi
+}
+```
+
+---
+
 ## 适用范围决策树
 
 ```
@@ -95,7 +122,10 @@ export OPENAI_API_KEY=sk-proj-...   # Codex CLI 检测到此变量后切换为 A
 │   └─ ✗ 不用本 skill → 必须用 matplotlib/seaborn 生成
 └─ 非数值内容（流程图、架构图、概念示意）
     ├─ 极简几何图（≤3个框） → tikz 即可
-    └─ 复杂流程图 / 概念插图 → ✓ 使用本 skill
+    └─ 复杂流程图 / 概念插图
+        ├─ --check 返回 api_key → python scripts/draw_image.py --prompt ...
+        ├─ --check 返回 codex_oauth → $imagegen ... (Codex CLI)
+        └─ --check 退出码 2 → 跳过，\missingfigure{} 占位
 ```
 
 ---
