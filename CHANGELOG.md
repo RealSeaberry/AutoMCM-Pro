@@ -6,42 +6,6 @@ Version scheme: [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [0.3.0] — 2026-05-02
-
-### Added
-
-#### Contest Git — 竞赛工作区版本控制
-- New script `scripts/contest_git.py` — manages an independent Git repo inside
-  `CUMCM_Workspace/` (separate from the AutoMCM-Pro tool repo):
-  - `init` — creates the workspace repo with `.gitignore` (LaTeX intermediates
-    excluded) and an initial commit; configures git identity automatically
-  - `auto_commit(stage, mode, round_n)` — called by `pipeline_manager.py` after
-    each `advance`; commits staged changes with semantic message
-    `feat(<stage>): approved [AP]` or `fix(<stage>): rework rN approved`
-  - `rework_start(stage, round_n)` — empty commit marking the rework entry point
-    in the log, called on `rework`
-  - `milestone_tag(name, message)` — annotated tag (overwrites if exists)
-  - Auto-tagging: `latex_draft` approved → `draft-v1`, `final_compile` approved
-    → `final-v1` (increments with review rounds)
-  - Read-only queries: `log(n, oneline)`, `diff(ref1, ref2, stat_only)`,
-    `status()`, `list_tags()`
-  - Standalone CLI: `python scripts/contest_git.py init|log|diff|status|tag|tags`
-- `pipeline_manager.py` integration:
-  - `init --git` flag: enables contest git and calls `contest_git.init()`
-  - `git_enabled` field persisted in `pipeline.json`
-  - `advance` auto-commits on every stage approval
-  - `rework` records a rework-start empty commit
-  - New `contest-git` subcommand group exposes all read/tag operations:
-    `log`, `diff`, `status`, `tag`, `tags`
-- `auto-mcm/SKILL.md`: new **【竞赛工作区版本控制】** section with event/git-action
-  table and usage examples
-
-### Changed
-- `pipeline_manager.py` docstring updated to list `contest-git` subcommands
-- `pipeline_manager.py` `init` subparser: `--git` flag documented
-
----
-
 ## [0.2.0] — 2026-05-03
 
 ### Added
@@ -83,6 +47,31 @@ Version scheme: [Semantic Versioning](https://semver.org/).
   - Background `draw-image` dispatch pattern with graceful skip
   - LaTeX section parallelization via `latex/sections/` fragments
 
+#### Contest Git — 竞赛工作区版本控制
+- New script `scripts/contest_git.py` — manages an independent Git repo inside
+  `CUMCM_Workspace/` (separate from the AutoMCM-Pro tool repo):
+  - `init` — creates the workspace repo with `.gitignore` (LaTeX intermediates
+    excluded) and an initial commit; configures git identity automatically
+  - `auto_commit(stage, mode, round_n)` — called by `pipeline_manager.py` after
+    each `advance`; commits staged changes with semantic message
+    `feat(<stage>): approved [AP]` or `fix(<stage>): rework rN approved`
+  - `rework_start(stage, round_n)` — empty commit marking the rework entry point
+    in the log, called on `rework`
+  - `milestone_tag(name, message)` — annotated tag (overwrites if exists)
+  - Auto-tagging: `latex_draft` approved → `draft-v1`, `final_compile` approved
+    → `final-v1` (increments with review rounds)
+  - Read-only queries: `log(n, oneline)`, `diff(ref1, ref2, stat_only)`,
+    `status()`, `list_tags()`
+  - Standalone CLI: `python scripts/contest_git.py init|log|diff|status|tag|tags`
+- `pipeline_manager.py` integration:
+  - `init --git` flag: enables contest git and calls `contest_git.init()`
+  - `git_enabled` field persisted in `pipeline.json`
+  - `advance` auto-commits on every stage approval
+  - `rework` records a rework-start empty commit
+  - New `contest-git` subcommand group: `log`, `diff`, `status`, `tag`, `tags`
+- `auto-mcm/SKILL.md`: new **【竞赛工作区版本控制】** section with event/git-action
+  table and usage examples
+
 #### Skill Updates
 - `cumcm-master/SKILL.md`: figure source decision tree (data vs. non-data);
   `/draw-image` integration in the figure-generation step
@@ -93,10 +82,10 @@ Version scheme: [Semantic Versioning](https://semver.org/).
 - `scripts/draw_image.py`: default model upgraded from `gpt-image-1` to
   `gpt-image-2`; `--size` changed from fixed choices to free-form string to
   support gpt-image-2's flexible resolution system
-- `README.md`: added `/draw-image` and multi-agent sections (Chinese + English);
-  updated project structure tree; added optional `openai>=1.0` prerequisite;
-  added version badge
-- `pipeline_manager.py` docstring updated to list new parallel commands
+- `README.md`: added `/draw-image`, multi-agent, and contest version control
+  sections (Chinese + English); updated project structure tree; added optional
+  `openai>=1.0` prerequisite; added version badge
+- `pipeline_manager.py` docstring updated to list all new commands
 
 ### Removed
 - `demo/multi_agent_demo/` — development-only test case (verified and removed

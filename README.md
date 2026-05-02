@@ -5,7 +5,7 @@
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/code)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Demo: CUMCM 2025A](https://img.shields.io/badge/Demo-CUMCM%202025A-orange)](demo/)
-[![Version](https://img.shields.io/badge/version-v0.3.0-brightgreen)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v0.2.0-brightgreen)](CHANGELOG.md)
 
 ---
 
