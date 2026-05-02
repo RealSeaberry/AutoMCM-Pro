@@ -146,6 +146,21 @@ cd CUMCM_Workspace && python src/0X_script.py
 - DPI ≥ 300，保存为 PNG
 - 文件名格式：`fig01_description.png`
 
+### 图表来源决策树
+
+```
+需要一张图？
+├─ 内容来自代码运行数值（散点图、折线图、热力图等）
+│   └─ 必须用 matplotlib/seaborn 生成，绝不使用 AI 绘图
+└─ 非数值内容（流程图、架构图、概念示意）
+    ├─ 极简几何图（3个框以内）→ tikz 即可
+    └─ 复杂流程图 / 概念插图 → 使用 /draw-image skill：
+        python scripts/draw_image.py \
+          --prompt "..." \
+          --output "CUMCM_Workspace/latex/images/figXX_name.png" \
+          --size 1024x1536 --quality high
+```
+
 ---
 
 ## 【第四步】Phase 3 — 学术化 LaTeX 写作
@@ -172,7 +187,10 @@ cp templates/latex_template.tex CUMCM_Workspace/latex/main.tex
 **3. 问题分析**
 - 对每个小问单独分析
 - 阐明解题思路、数学工具选择理由
-- 包含流程图（使用 tikz 绘制）
+- 包含流程图：
+  - **数据结果图**（真实数值）→ 必须由 Python 代码生成
+  - **算法/建模流程图 / 概念插图** → 使用 `/draw-image` skill 生成（调用 `scripts/draw_image.py`）
+  - tikz 仍可用于极简线框图，但复杂流程图优先用 `/draw-image`
 
 **4. 模型假设**
 - 5~7 条假设，每条附简短理由

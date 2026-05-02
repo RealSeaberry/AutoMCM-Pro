@@ -167,6 +167,14 @@ python scripts/pipeline_manager.py start-stage latex_draft
 1. 使用对应模板（CUMCM → `latex_template.tex`，MCM → `mcm_template.tex`）
 2. 按论文结构逐章填写，每章三轮自审（见各自 SKILL 的写作规范）
 3. 插入图表时，**确认对应图片文件物理存在** `latex/images/*.png`
+   - 数据/结果图 → 必须来自已运行的 Python 代码
+   - 流程图 / 概念插图 → 使用 `/draw-image` skill 生成：
+     ```bash
+     python scripts/draw_image.py \
+       --prompt "..." \
+       --output "CUMCM_Workspace/latex/images/figXX_name.png" \
+       --quality high
+     ```
 4. **发起 Checkpoint ⑤**
 
 ---
@@ -218,6 +226,104 @@ python scripts/pipeline_manager.py rework <stage> --feedback "反馈摘要"
    - 修改后的关键数值变化
 4. 重新运行受影响的验证脚本
 5. 再次 `request-review`
+
+---
+
+## 【多 Agent 并行策略】
+
+### 可并行的阶段
+
+| 情形 | 可并行的阶段 | 前置条件 |
+|------|------------|---------|
+| N 个子问题建模 | `model_1_build` … `model_N_build` | `data_preprocessing` approved |
+| N 个子问题验证 | `model_1_verify` … `model_N_verify` | 各自的 build approved |
+| draw-image 生成 | 任意时机，background=True | `--check` 返回可用 |
+| LaTeX 写作 | 各章节独立分配 | 所有 verify approved |
+
+### 启动并行 Agent（data_preprocessing 完成后）
+
+**Step 1** — 注册并行批次：
+```bash
+python scripts/pipeline_manager.py parallel-start \
+  model_1_build model_2_build model_3_build
+```
+
+**Step 2** — 主 Agent 在**同一条消息**中启动多个子 Agent（Claude Code Agent 工具）：
+
+> 在 Claude Code 中同时调用多个 Agent tool block：
+> ```
+> Agent(description="问题一建模",   prompt="...", run_in_background=False)
+> Agent(description="问题二建模",   prompt="...", run_in_background=False)
+> Agent(description="问题三建模",   prompt="...", run_in_background=False)
+> ```
+> 三个 Agent 并发运行，各自负责一个子问题的 build → verify → request-review 全流程。
+
+每个子 Agent 的 prompt 模板：
+```
+你是 AutoMCM-Pro 的 model_{N}_build 子 Agent。
+任务：为问题 {N} 完成建模与验证。
+
+前置：
+- 读取 CUMCM_Workspace/state/pipeline.json 确认 data_preprocessing 已 approved
+- 读取 CUMCM_Workspace/state/human_intervention.md（MANUAL 模式必读）
+
+执行：
+1. python scripts/pipeline_manager.py start-stage model_{N}_build
+2. 编写 CUMCM_Workspace/src/models/problem{N}_{type}.py 并运行
+3. python scripts/pipeline_manager.py start-stage model_{N}_verify
+4. 编写并运行 CUMCM_Workspace/src/verifications/verify_problem{N}_{type}.py
+5. 若验证全通过：request-review → （AP 模式自评 advance，MANUAL 模式等待）
+   若有 FAIL：修复代码，重跑验证，直至全通过
+
+完成后输出：[model_{N}] 完成，等待主 Agent 汇总。
+```
+
+**Step 3** — 主 Agent 等待所有子 Agent，然后检查：
+```bash
+python scripts/pipeline_manager.py parallel-all-done \
+  model_1_verify model_2_verify model_3_verify
+# 退出码 0 = 全部通过，可以进入 sensitivity_analysis
+```
+
+**Step 4** — 如果全部通过：
+```bash
+python scripts/pipeline_manager.py parallel-status \
+  model_1_verify model_2_verify model_3_verify
+python scripts/pipeline_manager.py start-stage sensitivity_analysis
+```
+
+### draw-image 后台并行
+
+draw-image 调用总是在后台启动，不阻塞主流程：
+
+```bash
+# 主 Agent 在写 LaTeX 的同时，后台生成所有流程图
+python scripts/draw_image.py --check && \
+  python scripts/draw_image.py \
+    --prompt "..." --output "latex/images/fig01_pipeline.png" \
+    --quality high &
+
+python scripts/draw_image.py --check && \
+  python scripts/draw_image.py \
+    --prompt "..." --output "latex/images/fig02_model_flow.png" \
+    --quality high &
+
+wait   # 等待所有后台图像生成完成后再插入 LaTeX
+```
+
+> **`--check` 返回退出码 2 时跳过**，用 `\missingfigure{描述}` 占位，LaTeX 编译仍然通过。
+
+### LaTeX 章节并行
+
+`latex_draft` 阶段可拆分为多个独立章节任务，由子 Agent 并发写作：
+
+```bash
+python scripts/pipeline_manager.py parallel-start \
+  latex_problem_analysis latex_model_build latex_sensitivity latex_conclusion
+```
+
+每个子 Agent 只负责一章，写完后写入各自的 `.tex` 片段文件（`latex/sections/`），  
+主 Agent 汇总后 `\input{}` 到 `main.tex`。
 
 ---
 
