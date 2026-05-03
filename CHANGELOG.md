@@ -20,13 +20,17 @@ Version scheme: [Semantic Versioning](https://semver.org/).
     `--quality` (low/medium/high/auto), `--output-format` (png/jpeg/webp),
     `--compression`, `--background`, `--moderation`
   - `--check` flag: probes authentication without generating anything
-- Three-tier auth detection (in priority order):
-  1. `OPENAI_API_KEY` env var → OpenAI Python SDK path
-  2. Codex OAuth session (scans `~/.codex/auth.json` and related paths,
-     `CODEX_AUTH_TOKEN` / `OPENAI_OAUTH_TOKEN` env vars) → routes to
-     Codex CLI `$imagegen`
-  3. Neither configured → **graceful skip** (exit code 2, not an error);
-     pipeline continues with `\missingfigure{}` placeholder in LaTeX
+- Three-tier auth detection (in priority order) with explicit default-on/off behavior:
+  1. `OPENAI_API_KEY` env var → OpenAI Python SDK path (token-based billing)
+  2. Codex OAuth session detected (scans `~/.codex/auth.json` and related paths,
+     `CODEX_AUTH_TOKEN` / `OPENAI_OAUTH_TOKEN` env vars) →
+     **auto-enabled** without any configuration; routes to Codex CLI `$imagegen`
+     (free within ChatGPT Plus/Pro subscription)
+  3. Neither configured → **disabled by default**; graceful skip (exit code 2,
+     not an error); pipeline continues with `\missingfigure{}` placeholder in LaTeX
+- **Design intent**: Codex users get image generation out of the box; non-Codex
+  users see the feature as off unless they explicitly supply an API key — no
+  unexpected charges, no pipeline interruptions
 - Skill documents: decision tree (when to use AI images vs. matplotlib),
   prompt engineering templates, LaTeX integration, pricing table, error guide
 
