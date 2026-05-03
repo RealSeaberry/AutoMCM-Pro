@@ -92,7 +92,7 @@ not_started → in_progress → pending_review → approved
 
 ### 五层建模质量门控
 
-在 verify 通过之外，v0.2.0 新增五层质量检查，彻底杜绝"代码运行了但结果是错的"：
+在 verify 通过之外，v0.2.0 新增五层质量检查，减少"代码运行了但结果是错的"的可能性：
 
 | 门控 | 内容 |
 |------|------|
@@ -206,7 +206,7 @@ cd /path/to/my-contest-2025
 
 > 题目文件和数据不需要提前放置，Agent 会在对话中询问路径。
 
-### 第三步：开口说话即可
+### 第三步：启动skill
 
 ```bash
 claude        # 启动 Claude Code
@@ -344,6 +344,8 @@ AutoMCM-Pro/
 │   ├── pipeline_manager.py      # GitOps 状态机 CLI（含 suggest-parallel/parallel/contest-git）
 │   ├── contest_git.py           # 竞赛工作区版本控制（CUMCM_Workspace/.git）
 │   ├── draw_image.py            # OpenAI gpt-image-2 图像生成（含 Codex 认证检测）
+│   ├── quality_gate.py          # 建模质量门控：文献/数值/验证报告/一致性（4门控 CLI）
+│   ├── security_check.py        # 安全检查：路径遍历/密钥泄露/工作区扫描（CLI）
 │   ├── compile_pdf.py           # 跨平台 LaTeX 编译（Python）
 │   ├── setup_workspace.py       # 工作区目录初始化
 │   └── agent_memory_manager.py  # 记忆管理工具

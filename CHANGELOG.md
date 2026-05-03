@@ -134,13 +134,23 @@ Version scheme: [Semantic Versioning](https://semver.org/).
   - Removed all `pipeline_manager.py init` instructions from user-facing steps
   - Added AP mode and MANUAL mode natural language dialogue examples
   - Updated English section to match
-- `auto-mcm/SKILL.md`: new **【建模质量门控】** section — 5-gate quality
-  system: literature gate (≥2 refs), numerical sanity self-check table,
-  structured PASS/FAIL report contract, LaTeX 3-attempt retry loop,
-  cross-problem consistency check for parallel mode
+- New script `scripts/quality_gate.py` — hard-enforced 4-gate quality CLI
+  (not behavioral rules): literature reference count (≥2 per sub-problem),
+  numerical sanity scan (inf/nan/1e200+), structured PASS/FAIL report parsing,
+  physical-constant cross-problem consistency check; subcommands
+  `verify / sanity / lit / consist / all`; exit codes 0=pass, 1=fail, 2=skip
+- New script `scripts/security_check.py` — hard-enforced security CLI:
+  path traversal prevention (`check_paths`), env-variable leak detection
+  (`check_env_not_leaked`), workspace secret scan (`scan_files_for_secrets`,
+  `scan_workspace_all`); 6 secret patterns (OpenAI, Anthropic, GitHub, AWS,
+  password literals, generic API keys); output auto-redacted to ≤20 chars
+- `auto-mcm/SKILL.md`: **【建模质量门控】** updated — now documents exact
+  `python scripts/quality_gate.py` invocations for every pipeline moment
+  (build pre-gate, build post-gate, verify gate, consistency gate); structured
+  `===VERIFICATION REPORT===` contract; LaTeX 3-attempt retry loop
 - `auto-mcm/SKILL.md`: new **【安全规程】** section — API key protection,
-  file path validation, external-service query abstraction, rework-limit
-  user notification, secret-commit interception awareness
+  file path validation via `security_check.py path`, external-service query
+  abstraction, rework-limit user notification, secret-commit interception
 - `auto-mcm/SKILL.md`: dependency auto-check step added to wake-up protocol
 - `pipeline_manager.py` docstring updated to list all new commands
 

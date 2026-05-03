@@ -131,17 +131,17 @@ python scripts/pipeline_manager.py advance <stage_name>
 在终端输出：
 ```
 ╔══════════════════════════════════════════════════════════╗
-║  ⏸  CHECKPOINT — 等待人类审查                            ║
+║      CHECKPOINT — 等待人类审查                            ║
 ║                                                          ║
-║  阶段：[stage_name]                                      ║
-║  报告：CUMCM_Workspace/state/review_request.md           ║
+║  阶段: [stage_name]                                      ║
+║  报告: CUMCM_Workspace/state/review_request.md           ║
 ║                                                          ║
-║  请操作：                                                ║
+║  请操作:                                                 ║
 ║  1. 阅读 review_request.md                               ║
-║  2. 在 human_intervention.md 中填写意见                  ║
-║     • 同意继续 → 写入 [APPROVED]                         ║
-║     • 需要修改 → 写入 [REWORK] + 具体指令                ║
-║  3. 在终端输入「继续」后按 Enter                         ║
+║  2. 在 human_intervention.md 中填写意见                   ║
+║     • 同意继续 → 写入 [APPROVED]                          ║
+║     • 需要修改 → 写入 [REWORK] + 具体指令                  ║
+║  3. 在终端输入「继续」后按 Enter                           ║
 ╚══════════════════════════════════════════════════════════╝
 ```
 然后**不再执行任何代码或写入任何文件**，等待人类输入。
