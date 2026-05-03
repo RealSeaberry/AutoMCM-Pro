@@ -90,6 +90,28 @@ not_started → in_progress → pending_review → approved
 
 **所有验证项必须全部通过（`✓ PASS`），结果才能被引用进论文。** 任何 `✗ FAIL` 都会强制回退到模型构建阶段。
 
+### 五层建模质量门控
+
+在 verify 通过之外，v0.2.0 新增五层质量检查，彻底杜绝"代码运行了但结果是错的"：
+
+| 门控 | 内容 |
+|------|------|
+| **文献质量** | 每个子问题至少 2 篇学术文献支撑模型选择，否则不得开始编码 |
+| **数值合理性** | 自动检查决策变量范围、目标值量级、有无 `inf`/`nan`，任一异常回退 |
+| **验证报告格式** | `verify_*.py` 必须输出结构化 `PASS/FAIL` 报告，流水线程序化解析 |
+| **LaTeX 编译重试** | 编译失败时自动解析错误行号并修复，最多 3 次，仍失败才请求人工介入 |
+| **多问题一致性** | 并行模式下，所有子问题完成后统一检查物理常数和数据来源是否一致 |
+
+### 安全机制
+
+| 机制 | 说明 |
+|------|------|
+| **Markdown 注入防护** | 用户提供的文本在写入 pipeline 状态文件前自动脱敏，防止伪造 `[APPROVED]`/`[REWORK]` 控制标记 |
+| **返工上限** | 默认每阶段最多返工 5 次，超出后暂停等待人工介入，防止无限循环（`--max-reworks N` 可调整） |
+| **密钥提交拦截** | 竞赛 Git 提交前扫描暂存区，检测到 OpenAI key、GitHub token 等模式时自动阻止提交 |
+| **历史记录保护** | `[APPROVED]`/`[REWORK]` 标记替换采用 `count=1`，保留完整审查历史，不覆盖旧记录 |
+| **JSON 损坏恢复** | `pipeline.json` 解析失败时给出明确错误信息和恢复建议，不崩溃退出 |
+
 ### Mind-Reader 实时思维可视化
 
 基于 FastAPI + WebSocket 的实时 Web UI（`http://localhost:8080`），渲染 AI 在 `memory/thought_process.md` 中记录的推理过程，支持 KaTeX 数学公式、代码高亮和流水线进度看板。
@@ -447,6 +469,28 @@ All solver code (`src/models/`) must be paired with a corresponding verification
 - Numerical stability and convergence
 
 **All verification checks must pass (`✓ PASS`) before results can be cited in the paper.** Any `✗ FAIL` forces a rollback to the model-building stage.
+
+### Five-Layer Modeling Quality Gates
+
+Beyond pass/fail verification, v0.2.0 adds five quality checkpoints that catch "code ran but results are wrong":
+
+| Gate | What it checks |
+|------|---------------|
+| **Literature quality** | ≥ 2 academic references per sub-problem supporting the model choice; no coding until satisfied |
+| **Numerical sanity** | Decision variable ranges, objective value magnitude, absence of `inf`/`nan`; any anomaly triggers rollback |
+| **Structured verification output** | `verify_*.py` must print a machine-parseable `PASS/FAIL` report; pipeline parses it programmatically |
+| **LaTeX auto-retry** | On compile failure, automatically locates the error line and attempts repair up to 3 times before asking for help |
+| **Cross-problem consistency** | In parallel mode, after all verifies complete: checks that physical constants and data sources are unified across sub-problems |
+
+### Security
+
+| Mechanism | Description |
+|-----------|-------------|
+| **Markdown injection prevention** | User-provided text is sanitized before being written to pipeline state files, preventing forged `[APPROVED]`/`[REWORK]` control markers |
+| **Rework limit** | Default 5 reworks per stage; exceeded → pipeline pauses for human intervention, preventing infinite loops (`--max-reworks N` to adjust) |
+| **Secret commit interception** | Contest Git scans staged files before every commit; blocks and warns if OpenAI keys, GitHub tokens, or other credential patterns are detected |
+| **History preservation** | Marker replacement uses `count=1` — each approval/rework leaves a timestamped record; prior reviews are never overwritten |
+| **Corruption recovery** | Malformed `pipeline.json` produces a clear error with recovery instructions instead of a silent crash |
 
 ### Mind-Reader Real-Time Visualization
 

@@ -42,6 +42,17 @@ try:
     _CGIT_AVAILABLE = True
 except ImportError:
     _CGIT_AVAILABLE = False
+    import warnings as _warnings
+    _warnings.warn("[pipeline] contest_git 模块不可用，版本控制功能已禁用", stacklevel=1)
+
+# 用于防止 Markdown 注入的控制标记
+_INJECTION_PATTERNS = ["[APPROVED]", "[REWORK]", "[MANUAL_SPEC]"]
+
+def _sanitize(text: str) -> str:
+    """去除可能注入流水线控制标记的内容。"""
+    for pat in _INJECTION_PATTERNS:
+        text = text.replace(pat, pat.replace("[", "⟦").replace("]", "⟧"))
+    return text
 
 WORKSPACE    = Path("CUMCM_Workspace")
 STATE_DIR    = WORKSPACE / "state"
@@ -98,7 +109,11 @@ def now():
 def load():
     if not PIPELINE.exists():
         sys.exit("[pipeline] 流水线未初始化，请先运行 init_gitops.sh")
-    return json.loads(PIPELINE.read_text(encoding="utf-8"))
+    try:
+        return json.loads(PIPELINE.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        sys.exit(f"[pipeline] pipeline.json 损坏，无法解析: {e}\n"
+                 f"  请检查文件或从备份恢复: {PIPELINE}")
 
 
 def save(state: dict):
@@ -127,6 +142,7 @@ def cmd_init(args):
 
     git_enabled   = bool(getattr(args, "git", False))
     problem_count = int(getattr(args, "problems", 1))
+    max_reworks   = int(getattr(args, "max_reworks", 5))
 
     stages = {s: _stage_entry() for s in STAGE_ORDER}
     state = {
@@ -144,6 +160,7 @@ def cmd_init(args):
         "total_reworks": 0,
         "git_enabled":   git_enabled,
         "problem_count": problem_count,
+        "max_reworks":   max_reworks,
     }
     save(state)
 
@@ -163,6 +180,7 @@ def cmd_init(args):
     print(f"  竞赛     : {state['contest']}")
     print(f"  起始阶段 : problem_analysis")
     print(f"  子问题数 : {problem_count}  {'→ AP 多 Agent 并行已开启' if problem_count > 1 else '(单问题，顺序执行)'}")
+    print(f"  最大返工 : {max_reworks} 次/阶段")
     print(f"  版本控制 : {'✓ 已启用 (contest_git)' if git_enabled else '✗ 未启用 (可用 --git 开启)'}")
 
     # 初始化竞赛 git 仓库
@@ -255,7 +273,11 @@ def cmd_request_review(args):
     state["block_reason"] = f"awaiting human review of {stage}"
     save(state)
 
-    round_n = state["stages"][stage]["review_round"]
+    round_n  = state["stages"][stage]["review_round"]
+    summary  = _sanitize(args.summary)
+    results  = _sanitize(args.results)
+    concerns = _sanitize(args.concerns or "（无）")
+    next_s   = _sanitize(args.next or "（待定）")
     report = f"""# Review Request — Round {round_n}
 
 **阶段**: `{stage}`
@@ -267,25 +289,25 @@ def cmd_request_review(args):
 
 ## 本阶段工作摘要
 
-{args.summary}
+{summary}
 
 ---
 
 ## 关键结果 / 验证数据
 
-{args.results}
+{results}
 
 ---
 
 ## 问题与不确定点
 
-{args.concerns or '（无）'}
+{concerns}
 
 ---
 
 ## 拟进入的下一阶段
 
-{args.next or '（待定）'}
+{next_s}
 
 ---
 
@@ -303,8 +325,8 @@ def cmd_request_review(args):
     # Append to eval log
     entry = (
         f"\n\n---\n\n## [{now()}] Review 请求 — {stage} (Round {round_n})\n\n"
-        f"### 摘要\n{args.summary}\n\n"
-        f"### 结果\n{args.results}\n"
+        f"### 摘要\n{summary}\n\n"
+        f"### 结果\n{results}\n"
     )
     with EVAL_LOG.open("a", encoding="utf-8") as f:
         f.write(entry)
@@ -366,9 +388,10 @@ def cmd_advance(args):
     save(state)
 
     # Clear APPROVED marker from human_intervention.md so it's ready for next round
+    # Use count=1 to preserve history of earlier approvals
     if HUMAN_FILE.exists():
         content = HUMAN_FILE.read_text(encoding="utf-8")
-        content = content.replace("[APPROVED]", f"[APPROVED — {stage} @ {now()}]")
+        content = content.replace("[APPROVED]", f"[APPROVED — {stage} @ {now()}]", 1)
         HUMAN_FILE.write_text(content, encoding="utf-8")
 
     # 自动 git 快照
@@ -382,6 +405,14 @@ def cmd_rework(args):
     stage = args.stage
     if stage not in state["stages"]:
         sys.exit(f"[pipeline] 未知阶段: {stage}")
+
+    current_round = state["stages"][stage].get("review_round", 0)
+    max_reworks   = state.get("max_reworks", 5)
+    if current_round >= max_reworks:
+        print(f"[pipeline] ⚠ {stage} 已达返工上限 ({max_reworks} 次)。", file=sys.stderr)
+        print(f"[pipeline]   请人工介入解决根本问题，或使用 --max-reworks 提高上限重新初始化。",
+              file=sys.stderr)
+        sys.exit(2)
 
     state["stages"][stage]["status"] = "rework"
     state["total_reworks"] = state.get("total_reworks", 0) + 1
@@ -400,10 +431,10 @@ def cmd_rework(args):
     print(f"[pipeline] ↩ {stage} → rework")
     print(f"[pipeline] 请阅读 human_intervention.md 中的修改意见后开始 Rework")
 
-    # Clear REWORK marker
+    # Clear REWORK marker (count=1 preserves history)
     if HUMAN_FILE.exists():
         content = HUMAN_FILE.read_text(encoding="utf-8")
-        content = content.replace("[REWORK]", f"[REWORK — {stage} @ {now()}]")
+        content = content.replace("[REWORK]", f"[REWORK — {stage} @ {now()}]", 1)
         HUMAN_FILE.write_text(content, encoding="utf-8")
 
     # rework 起始标记提交
@@ -562,9 +593,11 @@ def main():
     pi.add_argument("--contest", required=True, choices=["cumcm","CUMCM","mcm","MCM","icm","ICM"])
     pi.add_argument("--tcn",     default="")
     pi.add_argument("--choice",  default="")
-    pi.add_argument("--problems", type=int, default=1,
+    pi.add_argument("--problems",    type=int, default=1,
                     help="子问题数量，开启 AP 多 Agent 并行（默认 1）")
-    pi.add_argument("--git",     action="store_true",
+    pi.add_argument("--max-reworks", type=int, default=5, dest="max_reworks",
+                    help="每阶段最大返工次数，超出后流水线暂停等待人工介入（默认 5）")
+    pi.add_argument("--git",         action="store_true",
                     help="在 CUMCM_Workspace/ 下初始化竞赛 Git 仓库")
 
     # status

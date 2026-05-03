@@ -93,9 +93,29 @@ Version scheme: [Semantic Versioning](https://semver.org/).
 - `auto-mcm/SKILL.md`: `latex_draft` stage now documents draw-image option
 
 ### Changed
-- `scripts/draw_image.py`: default model upgraded from `gpt-image-1` to
-  `gpt-image-2`; `--size` changed from fixed choices to free-form string to
-  support gpt-image-2's flexible resolution system
+
+#### Security Fixes
+- `pipeline_manager.py`: sanitize user-provided `--summary`/`--results`/
+  `--concerns` before writing to eval log and review files — prevents
+  injection of `[APPROVED]`/`[REWORK]` control markers via argument strings
+- `pipeline_manager.py`: marker replacement in `human_intervention.md` now
+  uses `str.replace(..., count=1)` — preserves full review history; prior
+  approvals and reworks no longer silently overwritten
+- `pipeline_manager.py`: `load()` now catches `json.JSONDecodeError` and
+  exits with a clear recovery message instead of an uncaught exception
+- `pipeline_manager.py`: emit `UserWarning` when `contest_git` module is
+  unavailable instead of silently disabling all version-control features
+- `contest_git.py`: `auto_commit` now calls `_scan_staged_for_secrets()`
+  before every commit; blocks and warns if OpenAI keys (`sk-…`), GitHub
+  tokens (`ghp_…`), AWS keys (`AKIA…`), or `password=`/`token=` patterns
+  are found in staged diffs
+- `contest_git.py`: `.gitignore` expanded to block `.env`, `*.key`, `*.pem`,
+  `credentials.*`, `secrets.*`, `*_token*`, `config.local.*`
+
+#### Automation & Reliability
+- `pipeline_manager.py`: `--max-reworks N` flag on `init` (default 5);
+  `cmd_rework` checks per-stage rework count and exits with code 2 if
+  limit exceeded, preventing infinite repair loops
 - `auto-mcm/SKILL.md` UX overhaul — zero command-line interaction for users:
   - Wake-up protocol now checks initialization state first; triggers
     **首次启动协议** (first-launch protocol) when workspace is not yet set up
@@ -114,6 +134,14 @@ Version scheme: [Semantic Versioning](https://semver.org/).
   - Removed all `pipeline_manager.py init` instructions from user-facing steps
   - Added AP mode and MANUAL mode natural language dialogue examples
   - Updated English section to match
+- `auto-mcm/SKILL.md`: new **【建模质量门控】** section — 5-gate quality
+  system: literature gate (≥2 refs), numerical sanity self-check table,
+  structured PASS/FAIL report contract, LaTeX 3-attempt retry loop,
+  cross-problem consistency check for parallel mode
+- `auto-mcm/SKILL.md`: new **【安全规程】** section — API key protection,
+  file path validation, external-service query abstraction, rework-limit
+  user notification, secret-commit interception awareness
+- `auto-mcm/SKILL.md`: dependency auto-check step added to wake-up protocol
 - `pipeline_manager.py` docstring updated to list all new commands
 
 ### Removed

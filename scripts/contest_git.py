@@ -70,7 +70,45 @@ Thumbs.db
 
 # 字体缓存（matplotlib 等）
 .mplconfig/
+
+# 密钥与凭证（绝不入库）
+.env
+.env.*
+*.key
+*.pem
+*.p12
+credentials.*
+secrets.*
+*_secret*
+*_token*
+config.local.*
 """
+
+# 提交前密钥扫描：匹配常见 secret 模式
+import re as _re
+_SECRET_PATTERNS = [
+    _re.compile(r'sk-[A-Za-z0-9]{20,}'),           # OpenAI API key
+    _re.compile(r'ghp_[A-Za-z0-9]{36}'),            # GitHub personal token
+    _re.compile(r'AKIA[A-Z0-9]{16}'),               # AWS access key
+    _re.compile(r'(?i)(password|passwd|secret|token|api[-_]?key)\s*[:=]\s*\S{8,}'),
+]
+
+def _scan_staged_for_secrets() -> list[str]:
+    """扫描暂存区中的文件，返回疑似包含密钥的警告列表。"""
+    warnings = []
+    try:
+        diff = _git("diff", "--cached", "--unified=0", silent=True)
+        for line in diff.splitlines():
+            if not line.startswith("+") or line.startswith("+++"):
+                continue
+            for pat in _SECRET_PATTERNS:
+                if pat.search(line):
+                    snippet = line[1:60] + ("…" if len(line) > 61 else "")
+                    warnings.append(f"  疑似密钥: {snippet}")
+                    break
+    except RuntimeError:
+        pass
+    return warnings
 
 
 # ── 底层 git 调用 ─────────────────────────────────────────────────────────
@@ -146,10 +184,19 @@ def auto_commit(stage: str, mode: str = "AP", round_n: int = 1) -> str | None:
     # 检查是否有变更
     try:
         _git("diff", "--cached", "--quiet", silent=True)
-        # 无变更
-        return None
+        return None   # 无变更
     except RuntimeError:
         pass  # 有变更，继续提交
+
+    # 密钥扫描
+    secret_warnings = _scan_staged_for_secrets()
+    if secret_warnings:
+        print(f"[contest_git] ⚠ 暂存区中发现疑似密钥，已阻止提交:", file=sys.stderr)
+        for w in secret_warnings:
+            print(w, file=sys.stderr)
+        print("[contest_git]   请检查并从暂存区移除敏感内容后重试。", file=sys.stderr)
+        _git("reset", "HEAD")   # 取消暂存
+        return None
 
     # 构造语义化提交消息
     if round_n > 1:
