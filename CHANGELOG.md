@@ -96,9 +96,24 @@ Version scheme: [Semantic Versioning](https://semver.org/).
 - `scripts/draw_image.py`: default model upgraded from `gpt-image-1` to
   `gpt-image-2`; `--size` changed from fixed choices to free-form string to
   support gpt-image-2's flexible resolution system
-- `README.md`: added `/draw-image`, multi-agent, and contest version control
-  sections (Chinese + English); updated project structure tree; added optional
-  `openai>=1.0` prerequisite; added version badge
+- `auto-mcm/SKILL.md` UX overhaul — zero command-line interaction for users:
+  - Wake-up protocol now checks initialization state first; triggers
+    **首次启动协议** (first-launch protocol) when workspace is not yet set up
+  - First-launch protocol: agent asks for file paths via natural language
+    (AskUserQuestion), reads the problem to auto-detect sub-problem count and
+    contest type, then runs all init commands silently (setup_workspace.py +
+    pipeline_manager.py init with --problems N --git)
+  - AP mode checkpoints: replaced raw command output with natural language
+    progress reports after each stage; no user input needed
+  - MANUAL mode: user provides specs and approvals in natural language; agent
+    translates internally to pipeline commands; removed "输入继续" terminal
+    instruction
+  - Rework protocol: user states changes in natural language; agent writes to
+    human_intervention.md and executes rework command silently
+- `README.md` "How to Use" section rewritten for zero-command UX:
+  - Removed all `pipeline_manager.py init` instructions from user-facing steps
+  - Added AP mode and MANUAL mode natural language dialogue examples
+  - Updated English section to match
 - `pipeline_manager.py` docstring updated to list all new commands
 
 ### Removed

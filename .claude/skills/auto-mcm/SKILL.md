@@ -16,25 +16,75 @@ description: >
 
 ## 【唤醒协议】每次被调用时必须首先执行
 
-```bash
-# Step 1: 读取流水线状态
-python scripts/pipeline_manager.py status
+### Step 1 — 检查工作区是否已初始化
 
-# Step 2: 根据输出确定
-#   - 当前模式 (AP / MANUAL)
-#   - 当前阶段 (current_stage)
-#   - 阶段状态 (not_started / in_progress / pending_review / rework)
+```bash
+python scripts/pipeline_manager.py status 2>/dev/null
 ```
 
-根据状态决定下一步：
+- **退出码 0（已初始化）** → 读取当前阶段和状态，跳到 Step 3
+- **退出码非 0（未初始化）** → 执行 **Step 2【首次启动协议】**
 
-| 状态 | 行为 |
-|------|------|
-| `not_started` | 执行 `start-stage`，开始该阶段工作 |
+---
+
+### Step 2 — 首次启动协议（全程自然语言，用户零命令）
+
+**2a. 用自然语言询问最少必要信息（AskUserQuestion）：**
+
+> "请告诉我：① 题目文件的路径（PDF 或文本），② 附件数据文件所在位置（如有），③ 希望用哪种模式？AP 模式（AI 全自动推进，仅在关键节点可干预）或 MANUAL 模式（每步等待你的审批）？默认 AP。"
+
+**2b. 读取题目，自动推断配置：**
+
+```bash
+# 提取题目文本
+python -c "import pdfplumber; pdf=pdfplumber.open('PROBLEM_PATH'); [print(p.extract_text()) for p in pdf.pages]" 2>/dev/null \
+  || python -c "import pypdf; r=pypdf.PdfReader('PROBLEM_PATH'); [print(p.extract_text()) for p in r.pages]"
+```
+
+根据题目内容自动推断：
+- 竞赛类型（CUMCM / MCM / ICM）
+- 子问题数量（N）
+- 是否有数据附件
+
+告知用户推断结果，例如：
+> "我分析了题目，检测到 **3 个子问题**。将开启多 Agent 并行模式，同时启用竞赛版本控制。是否有补充？"
+
+（默认直接执行，用户沉默 = 确认）
+
+**2c. 自动运行所有初始化命令（静默执行，不让用户看到命令行）：**
+
+```bash
+python scripts/setup_workspace.py
+
+python scripts/pipeline_manager.py init \
+  --mode {AP|MANUAL} \
+  --contest {CUMCM|MCM|ICM} \
+  --problems {N} \
+  --git
+
+# 将题目和数据复制到工作区
+cp PROBLEM_PATH CUMCM_Workspace/data/
+cp DATA_FILES   CUMCM_Workspace/data/   # 如有
+```
+
+**2d. 以自然语言告知用户就绪状态：**
+
+> "✓ 工作区已就绪！配置：**AP 模式** | **3 个并行 Agent** | **版本控制已开启**。
+> 现在开始建模，我会在完成每个阶段后向你汇报进展。"
+
+---
+
+### Step 3 — 根据流水线状态决定行动
+
+| 状态 | Agent 行为 |
+|------|-----------|
+| `not_started` | 执行 `start-stage`，静默开始工作 |
 | `in_progress` | 直接继续该阶段未完成的工作 |
-| `pending_review` | 重新打印 Checkpoint 横幅，等待人类 |
-| `rework` | 读取 `human_intervention.md`，针对性重做 |
-| `approved` | 执行 `advance`，移至下一阶段 |
+| `pending_review`（MANUAL 模式） | 用自然语言向用户汇报并等待反馈 |
+| `rework` | 读取 `human_intervention.md`，针对性重做，无需用户重新输入命令 |
+| `approved` | 执行 `advance`，静默推进，告知用户进展 |
+
+**所有 `pipeline_manager.py` 命令均由 Agent 在后台执行，用户只看到自然语言进度汇报。**
 
 ---
 
@@ -53,12 +103,9 @@ python scripts/pipeline_manager.py request-review \
 
 **命令执行后，根据模式决定后续行为：**
 
-### AP 模式 — 自评自批，自动推进
+### AP 模式 — 自评自批，自动推进，自然语言汇报
 
-读取 `pipeline.json` 确认模式为 `AP` 后，立即执行自评：
-
-1. 在 `state/human_intervention.md` 中追加 AI 自评内容：
-
+1. 在 `state/human_intervention.md` 中写入自评：
 ```
 [APPROVED]
 AI 自评（<stage>）：
@@ -68,21 +115,21 @@ AI 自评（<stage>）：
 - 进入下一阶段的理由：<简要说明>
 ```
 
-2. 立即执行 advance，推进到下一阶段：
-
+2. 执行 advance（静默）：
 ```bash
 python scripts/pipeline_manager.py advance <stage>
 ```
 
-3. **无需停下来等待人类输入「继续」，直接开始下一阶段。**
-   （人类可随时查看 `state/review_request.md` 审阅 AI 的自评记录。）
+3. **用自然语言向用户汇报本阶段成果，然后直接开始下一阶段，无需等待任何输入。** 汇报格式示例：
+> "✓ **数据预处理**完成。发现 243 条记录，清洗后保留 231 条，缺失值用中位数填补。生成了数据分布图 3 张。→ 开始问题一、二、三并行建模。"
 
-### MANUAL 模式 — 必须等待人类批准
+### MANUAL 模式 — 自然语言等待人类反馈
 
-**立即停止所有代码执行**，等待人类：
-1. 阅读 `state/review_request.md`
-2. 在 `state/human_intervention.md` 中填写 `[APPROVED]` 或 `[REWORK]`
-3. 在终端输入「继续」
+完成阶段后，以自然语言向用户展示汇报摘要，然后明确说：
+> "请告诉我是否继续，或者提出修改意见。"
+
+等待用户回复（**用户输入自然语言即可**，无需填写任何文件或输入命令）。  
+收到确认后自动写入 `[APPROVED]` 并执行 advance；收到修改意见则直接进入 rework。
 
 ---
 
@@ -257,17 +304,11 @@ python scripts/pipeline_manager.py advance final_compile
 
 ## 【Manual 模式附加规程】
 
-Manual 模式下，在开始 `model_{n}_build` 之前，**必须先执行**：
+Manual 模式下，在开始 `model_{n}_build` 之前，读取 `human_intervention.md`，然后**用自然语言**向用户逐条复述建模规格：
 
-```bash
-# 读取并复述人类规格
-cat CUMCM_Workspace/state/human_intervention.md
-```
+> "我将按以下规格实现问题一：目标函数 max T_shield(θ,v)，决策变量 θ∈[0°,360°]、v∈[70,140] m/s，求解器 SLSQP。有遗漏或歧义请告知，否则我将立即开始。"
 
-然后向人类确认：
-> "我已读取您的建模规格。我将实现以下内容：[逐条列举]。有任何遗漏或歧义请现在告知。"
-
-等待人类确认后再开始编码。
+用户回复自然语言确认即可，无需填写任何文件。Agent 内部将确认写入 `human_intervention.md` 并开始编码。
 
 **在 Manual 模式下，严禁以下行为：**
 - 将 `human_intervention.md` 未提及的变量加入目标函数
@@ -278,20 +319,17 @@ cat CUMCM_Workspace/state/human_intervention.md
 
 ## 【Rework 执行规程】
 
-收到 `[REWORK]` 后：
+用户用自然语言提出修改意见后（无需任何命令），Agent 立即：
 
+1. 将反馈摘要写入 `human_intervention.md`，静默执行：
 ```bash
 python scripts/pipeline_manager.py rework <stage> --feedback "反馈摘要"
 ```
-
-1. 仔细读取 `human_intervention.md` 中 `[REWORK]` 之后的所有内容
-2. **只修改被明确批评的部分**，其余已 `approved` 的内容不得改动
-3. 在 `memory/thought_process.md` 中记录：
-   - 收到的批评
-   - 修改方案及理由
-   - 修改后的关键数值变化
-4. 重新运行受影响的验证脚本
-5. 再次 `request-review`
+2. 向用户复述理解到的修改要求，确认无歧义
+3. **只修改被明确批评的部分**，其余已 `approved` 的内容不得改动
+4. 在 `memory/thought_process.md` 中记录修改方案和关键数值变化
+5. 重新运行受影响的验证脚本
+6. 完成后用自然语言汇报结果，自动进入下一轮 review
 
 ---
 
