@@ -120,7 +120,73 @@ python scripts/pipeline_manager.py start-stage data_preprocessing
 
 ---
 
-### Stage: model_{n}_build + model_{n}_verify（每个小问）
+### Stage: model_build + model_verify（AP 模式入口决策）
+
+**进入此阶段时，AP 模式必须首先查询是否启用并行：**
+
+```bash
+python scripts/pipeline_manager.py suggest-parallel
+```
+
+| 返回值 | 含义 | 行动 |
+|--------|------|------|
+| 非空字符串（退出码 0） | 多子问题，可并行 | → **路径 A：并行 Agent** |
+| 空（退出码 1） | 单子问题或条件未满足 | → **路径 B：顺序执行** |
+
+---
+
+#### 路径 A — AP 多 Agent 并行（`problem_count > 1`）
+
+**Step 1** — 注册并行批次（build 阶段）：
+```bash
+# suggest-parallel 的输出即为阶段列表，例：model_1_build model_2_build model_3_build
+STAGES=$(python scripts/pipeline_manager.py suggest-parallel)
+python scripts/pipeline_manager.py parallel-start $STAGES
+```
+
+**Step 2** — 在**同一条消息**中为每个子问题启动独立 Agent，并发运行：
+
+```
+Agent(description="问题一 build+verify", prompt=<AP子Agent模板 N=1>)
+Agent(description="问题二 build+verify", prompt=<AP子Agent模板 N=2>)
+Agent(description="问题三 build+verify", prompt=<AP子Agent模板 N=3>)
+```
+
+**AP 子 Agent Prompt 模板：**
+```
+你是 AutoMCM-Pro AP 模式的 model_{N} 子 Agent，负责问题 {N} 的完整 build + verify 流程。
+
+前置检查：
+- 读取 CUMCM_Workspace/state/pipeline.json，确认 mode=AP、data_preprocessing=approved
+
+执行（严格按顺序，禁止跳步）：
+1. python scripts/pipeline_manager.py start-stage model_{N}_build
+2. 编写 CUMCM_Workspace/src/models/problem{N}_{type}.py 并运行至无报错
+3. python scripts/pipeline_manager.py start-stage model_{N}_verify
+4. 编写并运行 CUMCM_Workspace/src/verifications/verify_problem{N}_{type}.py
+5. 若有 ✗ FAIL → 修复 model 代码，重跑验证，循环直至全部 ✓ PASS
+6. AP 自评（写入 human_intervention.md）并执行：
+   python scripts/pipeline_manager.py advance model_{N}_verify
+
+完成后输出一行：[model_{N}] ✓ 全部验证通过，已 advance。
+```
+
+**Step 3** — 主 Agent 等待全部子 Agent 返回，然后检查：
+```bash
+python scripts/pipeline_manager.py parallel-all-done \
+  model_1_verify model_2_verify model_3_verify
+# 退出码 0 → 进入 sensitivity_analysis
+# 退出码 1 → 查看 parallel-status，针对未完成项重试
+```
+
+**Step 4** — 全部通过后推进：
+```bash
+python scripts/pipeline_manager.py start-stage sensitivity_analysis
+```
+
+---
+
+#### 路径 B — 顺序执行（`problem_count = 1`）
 
 **构建阶段：**
 ```bash
@@ -233,63 +299,31 @@ python scripts/pipeline_manager.py rework <stage> --feedback "反馈摘要"
 
 ### 可并行的阶段
 
-| 情形 | 可并行的阶段 | 前置条件 |
-|------|------------|---------|
-| N 个子问题建模 | `model_1_build` … `model_N_build` | `data_preprocessing` approved |
-| N 个子问题验证 | `model_1_verify` … `model_N_verify` | 各自的 build approved |
-| draw-image 生成 | 任意时机，background=True | `--check` 返回可用 |
-| LaTeX 写作 | 各章节独立分配 | 所有 verify approved |
+| 情形 | 可并行的阶段 | 前置条件 | 触发命令 |
+|------|------------|---------|---------|
+| N 个子问题建模 | `model_1_build` … `model_N_build` | `data_preprocessing` approved | `suggest-parallel` 自动检测 |
+| N 个子问题验证 | `model_1_verify` … `model_N_verify` | 全部 build approved | `suggest-parallel` 自动检测 |
+| draw-image 生成 | 任意时机，后台运行 | `--check` 返回可用 | 手动后台启动 |
+| LaTeX 各章节 | 各章独立分配 | 所有 verify approved | 手动 `parallel-start` |
 
-### 启动并行 Agent（data_preprocessing 完成后）
+> **AP 模式下，build/verify 的并行由流水线自动决策**。  
+> 主 Agent 在 data_preprocessing 完成后调用 `suggest-parallel`，若返回阶段列表则走并行路径，否则顺序执行。  
+> 完整执行步骤见上方 **`【AP 模式流水线】→ Stage: model_build + model_verify`**。
 
-**Step 1** — 注册并行批次：
+### 并行相关命令速查
+
 ```bash
-python scripts/pipeline_manager.py parallel-start \
-  model_1_build model_2_build model_3_build
-```
+# 当前可并行的阶段（AP 自动调用；也可手动查询）
+python scripts/pipeline_manager.py suggest-parallel
 
-**Step 2** — 主 Agent 在**同一条消息**中启动多个子 Agent（Claude Code Agent 工具）：
+# 同时标记多个阶段为 in_progress
+python scripts/pipeline_manager.py parallel-start model_1_build model_2_build model_3_build
 
-> 在 Claude Code 中同时调用多个 Agent tool block：
-> ```
-> Agent(description="问题一建模",   prompt="...", run_in_background=False)
-> Agent(description="问题二建模",   prompt="...", run_in_background=False)
-> Agent(description="问题三建模",   prompt="...", run_in_background=False)
-> ```
-> 三个 Agent 并发运行，各自负责一个子问题的 build → verify → request-review 全流程。
+# 查看一组阶段的完成情况
+python scripts/pipeline_manager.py parallel-status model_1_verify model_2_verify model_3_verify
 
-每个子 Agent 的 prompt 模板：
-```
-你是 AutoMCM-Pro 的 model_{N}_build 子 Agent。
-任务：为问题 {N} 完成建模与验证。
-
-前置：
-- 读取 CUMCM_Workspace/state/pipeline.json 确认 data_preprocessing 已 approved
-- 读取 CUMCM_Workspace/state/human_intervention.md（MANUAL 模式必读）
-
-执行：
-1. python scripts/pipeline_manager.py start-stage model_{N}_build
-2. 编写 CUMCM_Workspace/src/models/problem{N}_{type}.py 并运行
-3. python scripts/pipeline_manager.py start-stage model_{N}_verify
-4. 编写并运行 CUMCM_Workspace/src/verifications/verify_problem{N}_{type}.py
-5. 若验证全通过：request-review → （AP 模式自评 advance，MANUAL 模式等待）
-   若有 FAIL：修复代码，重跑验证，直至全通过
-
-完成后输出：[model_{N}] 完成，等待主 Agent 汇总。
-```
-
-**Step 3** — 主 Agent 等待所有子 Agent，然后检查：
-```bash
-python scripts/pipeline_manager.py parallel-all-done \
-  model_1_verify model_2_verify model_3_verify
-# 退出码 0 = 全部通过，可以进入 sensitivity_analysis
-```
-
-**Step 4** — 如果全部通过：
-```bash
-python scripts/pipeline_manager.py parallel-status \
-  model_1_verify model_2_verify model_3_verify
-python scripts/pipeline_manager.py start-stage sensitivity_analysis
+# 检查全部完成（退出码 0 = 可继续，1 = 仍有未完成）
+python scripts/pipeline_manager.py parallel-all-done model_1_verify model_2_verify model_3_verify
 ```
 
 ### draw-image 后台并行
@@ -332,9 +366,9 @@ python scripts/pipeline_manager.py parallel-start \
 初始化时加 `--git` 即可开启，流水线随后在每次 `advance` 时自动快照。
 
 ```bash
-# 初始化（开启版本控制）
+# 初始化（3 个子问题 + 多 Agent 并行 + 版本控制）
 python scripts/pipeline_manager.py init \
-  --mode AP --contest CUMCM --choice A --git
+  --mode AP --contest CUMCM --choice A --problems 3 --git
 
 # 手动查询（也可直接使用 contest_git.py）
 python scripts/pipeline_manager.py contest-git log

@@ -34,20 +34,30 @@ Version scheme: [Semantic Versioning](https://semver.org/).
 - Skill documents: decision tree (when to use AI images vs. matplotlib),
   prompt engineering templates, LaTeX integration, pricing table, error guide
 
-#### Multi-Agent Parallel Pipeline
-- `pipeline_manager.py` new commands:
+#### Multi-Agent Parallel Pipeline (AP Mode)
+- `pipeline_manager.py` new flag and commands:
+  - `init --problems N` — records sub-problem count; enables automatic AP
+    multi-agent parallelism when N > 1; stored as `problem_count` in
+    `pipeline.json`
+  - `suggest-parallel` — inspects current pipeline state and outputs the next
+    batch of stages that can be parallelized right now (exit 0 + space-separated
+    stage list); exit 1 when nothing to parallelize (single problem or conditions
+    not met). Two phases auto-detected:
+    1. `data_preprocessing` approved → outputs all `model_N_build` stages
+    2. All builds approved → outputs all `model_N_verify` stages
   - `parallel-start <s1> <s2> ...` — mark multiple stages `in_progress`
     simultaneously, enabling concurrent Agent execution
   - `parallel-status <s1> <s2> ...` — print a completion table for a stage group
   - `parallel-all-done <s1> <s2> ...` — exit 0 if all stages are `approved`,
     exit 1 otherwise (safe to use in shell conditionals)
 - `pipeline_manager.py` new constant `PARALLEL_GROUPS` documenting which
-  stages are safe to parallelize (`model_builds`, `model_verifies`,
-  `latex_sections`) and their prerequisites
-- `auto-mcm/SKILL.md` new section **【多 Agent 并行策略】**:
-  - Parallelization opportunity table
-  - `parallel-start` → N sub-Agent spawn → `parallel-all-done` workflow
-  - Sub-Agent prompt template for `model_N_build + verify`
+  stages are safe to parallelize and their prerequisites
+- `auto-mcm/SKILL.md` AP pipeline section updated:
+  - `model_build + model_verify` entry now has a parallel decision gateway:
+    calls `suggest-parallel` first; Path A (parallel) or Path B (sequential)
+  - AP sub-Agent prompt template included inline with AP-mode self-approve step
+  - `【多 Agent 并行策略】` section refactored into a concise reference with
+    command quick-reference table; full steps moved to AP flow section
   - Background `draw-image` dispatch pattern with graceful skip
   - LaTeX section parallelization via `latex/sections/` fragments
 

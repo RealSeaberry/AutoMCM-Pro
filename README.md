@@ -123,28 +123,33 @@ python scripts/draw_image.py \
 
 ### 多 Agent 并行流水线
 
-`pipeline_manager.py` 新增三条并行命令，支持将独立子问题分发给多个 Agent 同时建模：
+初始化时加 `--problems N` 即可开启 AP 模式多 Agent 并行。流水线在 `data_preprocessing` 完成后自动判断并行时机，无需手动干预：
 
 ```bash
-# 同时启动多个子问题建模阶段
-python scripts/pipeline_manager.py parallel-start model_1_build model_2_build model_3_build
+# 开启 AP 多 Agent 并行（3 个子问题）
+python scripts/pipeline_manager.py init --mode AP --contest CUMCM --problems 3
 
-# 查看并行进度
-python scripts/pipeline_manager.py parallel-status model_1_verify model_2_verify model_3_verify
-
-# 检查是否全部完成（退出码 0 = 可以进入下一阶段）
-python scripts/pipeline_manager.py parallel-all-done model_1_verify model_2_verify model_3_verify
+# 流水线自动在正确时机建议并行阶段
+python scripts/pipeline_manager.py suggest-parallel
+# 输出示例：model_1_build model_2_build model_3_build
 ```
 
-在 Claude Code 中，主 Agent 在**同一条消息**里同时调用多个 Agent tool，各自负责一个子问题的 build → verify → checkpoint 全流程，最后由主 Agent 汇总进入灵敏度分析。
+主 Agent 拿到 `suggest-parallel` 的输出后，在**同一条消息**里同时启动 N 个子 Agent，各自负责一个子问题的完整 build → verify → self-approve 流程，彼此完全独立。全部完成后主 Agent 通过 `parallel-all-done` 检查，再进入灵敏度分析。
+
+手动控制命令（也可直接使用）：
+```bash
+python scripts/pipeline_manager.py parallel-start    model_1_build model_2_build model_3_build
+python scripts/pipeline_manager.py parallel-status   model_1_verify model_2_verify model_3_verify
+python scripts/pipeline_manager.py parallel-all-done model_1_verify model_2_verify model_3_verify
+```
 
 ### 竞赛工作区版本控制
 
 初始化时加 `--git` 后，流水线在每次 `advance`（阶段通过）时自动提交快照，支持多轮迭代历史追踪与草稿对比：
 
 ```bash
-# 开启版本控制
-python scripts/pipeline_manager.py init --mode AP --contest CUMCM --choice A --git
+# 开启版本控制 + 多 Agent 并行（3 个子问题）
+python scripts/pipeline_manager.py init --mode AP --contest CUMCM --choice A --problems 3 --git
 
 # 查询历史 / 对比草稿
 python scripts/pipeline_manager.py contest-git log
@@ -303,7 +308,7 @@ AutoMCM-Pro/
 ├── init_gitops.sh               # 交互式初始化引导
 ├── docker-compose.yml           # 容器化环境（Python + TeX Live）
 ├── scripts/
-│   ├── pipeline_manager.py      # GitOps 状态机 CLI（含 parallel/contest-git 命令）
+│   ├── pipeline_manager.py      # GitOps 状态机 CLI（含 suggest-parallel/parallel/contest-git）
 │   ├── contest_git.py           # 竞赛工作区版本控制（CUMCM_Workspace/.git）
 │   ├── draw_image.py            # OpenAI gpt-image-2 图像生成（含 Codex 认证检测）
 │   ├── compile_pdf.py           # 跨平台 LaTeX 编译（Python）
@@ -455,25 +460,35 @@ New in v0.2.0: the `/draw-image` skill calls OpenAI **gpt-image-2** to generate 
 python scripts/draw_image.py --check   # check auth without generating anything
 ```
 
-### Multi-Agent Parallel Pipeline
+### Multi-Agent Parallel Pipeline (AP Mode)
 
-Three new `pipeline_manager.py` commands enable parallel model-building across independent sub-problems:
+Add `--problems N` to `init` to enable automatic AP multi-agent parallelism. The pipeline detects the right moment to parallelize — no manual intervention needed:
 
+```bash
+# Enable AP multi-agent parallel for 3 sub-problems
+python scripts/pipeline_manager.py init --mode AP --contest CUMCM --problems 3
+
+# Pipeline auto-suggests the next batch of parallel stages
+python scripts/pipeline_manager.py suggest-parallel
+# Example output: model_1_build model_2_build model_3_build
+```
+
+In Claude Code, the orchestrator Agent calls `suggest-parallel` after `data_preprocessing` is approved, then launches N sub-Agents simultaneously in a single message — each handles one sub-problem's complete build → verify → self-approve cycle independently. The orchestrator advances to sensitivity analysis only after `parallel-all-done` exits 0.
+
+Manual control commands (also available for custom orchestration):
 ```bash
 python scripts/pipeline_manager.py parallel-start    model_1_build model_2_build model_3_build
 python scripts/pipeline_manager.py parallel-status   model_1_verify model_2_verify model_3_verify
 python scripts/pipeline_manager.py parallel-all-done model_1_verify model_2_verify model_3_verify
 ```
 
-In Claude Code, the orchestrator Agent launches N sub-Agents simultaneously (one per sub-problem) in a single message, each running the full build → verify → checkpoint cycle independently. The orchestrator advances to sensitivity analysis only after `parallel-all-done` exits 0.
-
 ### Contest Workspace Version Control
 
 Add `--git` to `init` to enable an independent Git repo inside `CUMCM_Workspace/` that auto-snapshots at every pipeline stage approval — enabling multi-round draft comparison and rollback:
 
 ```bash
-# Enable version control
-python scripts/pipeline_manager.py init --mode AP --contest CUMCM --choice A --git
+# Enable version control + multi-agent parallel (3 sub-problems)
+python scripts/pipeline_manager.py init --mode AP --contest CUMCM --choice A --problems 3 --git
 
 # Query history / compare drafts
 python scripts/pipeline_manager.py contest-git log
