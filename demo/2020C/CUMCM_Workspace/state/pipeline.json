@@ -1,0 +1,180 @@
+{
+  "session_id": "20260825_154634",
+  "mode": "AP",
+  "contest": "CUMCM",
+  "tcn": "",
+  "problem_choice": "",
+  "created_at": "2026-08-25 15:46:34",
+  "updated_at": "2026-08-25 16:20:29",
+  "current_stage": "complete",
+  "blocked_at": null,
+  "block_reason": "",
+  "stages": {
+    "problem_analysis": {
+      "status": "approved",
+      "started_at": "2026-08-25 15:46:40",
+      "completed_at": "2026-08-25 15:49:54",
+      "approved_at": "2026-08-25 15:49:57",
+      "review_round": 1,
+      "notes": ""
+    },
+    "data_preprocessing": {
+      "status": "approved",
+      "started_at": "2026-08-25 15:50:07",
+      "completed_at": "2026-08-25 15:53:16",
+      "approved_at": "2026-08-25 15:53:20",
+      "review_round": 1,
+      "notes": ""
+    },
+    "model_1_build": {
+      "status": "approved",
+      "started_at": "2026-08-25 15:53:20",
+      "completed_at": null,
+      "approved_at": "2026-08-25 16:19:29",
+      "review_round": 0,
+      "notes": ""
+    },
+    "model_1_verify": {
+      "status": "approved",
+      "started_at": "2026-08-25 16:19:29",
+      "completed_at": "2026-08-25 16:02:55",
+      "approved_at": "2026-08-25 16:19:34",
+      "review_round": 1,
+      "notes": ""
+    },
+    "model_2_build": {
+      "status": "approved",
+      "started_at": "2026-08-25 16:19:34",
+      "completed_at": null,
+      "approved_at": "2026-08-25 16:19:29",
+      "review_round": 0,
+      "notes": ""
+    },
+    "model_2_verify": {
+      "status": "approved",
+      "started_at": "2026-08-25 16:19:29",
+      "completed_at": "2026-08-25 16:04:20",
+      "approved_at": "2026-08-25 16:19:34",
+      "review_round": 1,
+      "notes": ""
+    },
+    "model_3_build": {
+      "status": "approved",
+      "started_at": "2026-08-25 16:19:34",
+      "completed_at": null,
+      "approved_at": "2026-08-25 16:19:29",
+      "review_round": 0,
+      "notes": ""
+    },
+    "model_3_verify": {
+      "status": "approved",
+      "started_at": "2026-08-25 16:19:29",
+      "completed_at": "2026-08-25 16:07:03",
+      "approved_at": "2026-08-25 16:19:34",
+      "review_round": 1,
+      "notes": ""
+    },
+    "sensitivity_analysis": {
+      "status": "approved",
+      "started_at": "2026-08-25 16:19:34",
+      "completed_at": "2026-08-25 16:08:24",
+      "approved_at": "2026-08-25 16:08:29",
+      "review_round": 1,
+      "notes": ""
+    },
+    "latex_draft": {
+      "status": "approved",
+      "started_at": "2026-08-25 16:08:39",
+      "completed_at": "2026-08-25 16:19:12",
+      "approved_at": "2026-08-25 16:19:16",
+      "review_round": 1,
+      "notes": ""
+    },
+    "final_compile": {
+      "status": "approved",
+      "started_at": "2026-08-25 16:19:16",
+      "completed_at": null,
+      "approved_at": "2026-08-25 16:20:29",
+      "review_round": 0,
+      "notes": ""
+    }
+  },
+  "total_reworks": 0,
+  "git_enabled": true,
+  "problem_count": 3,
+  "max_reworks": 5,
+  "skunk_works": false,
+  "andon": {
+    "pulled": false,
+    "reason": "",
+    "pulled_by": "",
+    "pulled_at": null,
+    "cleared_at": null,
+    "resolution": ""
+  },
+  "kaizen": {
+    "max_rounds": 2,
+    "problems": {
+      "1": {
+        "rounds_used": 0,
+        "history": [
+          {
+            "time": "2026-08-25 16:08:32",
+            "scores": {
+              "significance": 4,
+              "robustness": 4,
+              "assumptions": 4,
+              "completeness": 4
+            },
+            "avg": 4.0,
+            "weakest": "PD 模型样本量小(123家/27违约), 特征选择可更系统",
+            "decision": "PROCEED",
+            "rounds_used_at_assess": 0
+          }
+        ],
+        "last_avg": 4.0,
+        "last_decision": "PROCEED"
+      },
+      "2": {
+        "rounds_used": 0,
+        "history": [
+          {
+            "time": "2026-08-25 16:08:32",
+            "scores": {
+              "significance": 4,
+              "robustness": 4,
+              "assumptions": 3,
+              "completeness": 4
+            },
+            "avg": 3.75,
+            "weakest": "迁移前提(PSI 轻度偏移)与伪评级分层是主要假设",
+            "decision": "ROUND_RECOMMENDED",
+            "rounds_used_at_assess": 0
+          }
+        ],
+        "last_avg": 3.75,
+        "last_decision": "ROUND_RECOMMENDED"
+      },
+      "3": {
+        "rounds_used": 0,
+        "history": [
+          {
+            "time": "2026-08-25 16:08:32",
+            "scores": {
+              "significance": 4,
+              "robustness": 3,
+              "assumptions": 3,
+              "completeness": 4
+            },
+            "avg": 3.5,
+            "weakest": "类别为行为代理、冲击系数为情景假设",
+            "decision": "ROUND_RECOMMENDED",
+            "rounds_used_at_assess": 0
+          }
+        ],
+        "last_avg": 3.5,
+        "last_decision": "ROUND_RECOMMENDED"
+      }
+    }
+  }
+}

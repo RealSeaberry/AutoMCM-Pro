@@ -36,6 +36,9 @@ import textwrap
 from datetime import datetime
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import worklog  # noqa: E402
+
 # 竞赛工作区 Git（可选）
 try:
     import contest_git as _cgit
@@ -143,6 +146,8 @@ def cmd_init(args):
     git_enabled   = bool(getattr(args, "git", False))
     problem_count = int(getattr(args, "problems", 1))
     max_reworks   = int(getattr(args, "max_reworks", 5))
+    skunk_works   = bool(getattr(args, "skunk_works", False))
+    kaizen_max_rounds = int(getattr(args, "kaizen_max_rounds", 2))
 
     stages = {s: _stage_entry() for s in STAGE_ORDER}
     state = {
@@ -161,6 +166,19 @@ def cmd_init(args):
         "git_enabled":   git_enabled,
         "problem_count": problem_count,
         "max_reworks":   max_reworks,
+        "skunk_works":   skunk_works,   # Project Skunk Works：轻量快速模式，见 AutoMCM_SOP.md §10
+        "andon": {                       # Andon Cord：任何 Agent 可拉的紧急停止信号，见 §11
+            "pulled": False,
+            "reason": "",
+            "pulled_by": "",
+            "pulled_at": None,
+            "cleared_at": None,
+            "resolution": "",
+        },
+        "kaizen": {                      # Project Kaizen：主动质量打磨循环，见 §13
+            "max_rounds": kaizen_max_rounds,
+            "problems": {},
+        },
     }
     save(state)
 
@@ -226,10 +244,16 @@ def _write_intervention_template(mode: str):
 def cmd_status(args):
     state = load()
     mode_badge = "🤖 AP" if state["mode"] == "AP" else "👤 MANUAL"
+    sw_badge = "  [🦨 SKUNK WORKS]" if state.get("skunk_works") else ""
     print(f"\n{'═'*58}")
-    print(f"  AutoMCM-Pro Pipeline  [{mode_badge}]  {state['contest']}")
+    print(f"  AutoMCM-Pro Pipeline  [{mode_badge}]  {state['contest']}{sw_badge}")
     print(f"  会话: {state['session_id']}  更新: {state['updated_at']}")
     print(f"{'═'*58}")
+    andon = state.get("andon", {})
+    if andon.get("pulled"):
+        print(f"  🔴 ANDON 已拉下！全流水线冻结，禁止 advance，直到 andon-clear")
+        print(f"     原因: {andon.get('reason', '')}")
+        print(f"     拉绳者: {andon.get('pulled_by', '?')}  时间: {andon.get('pulled_at', '?')}")
     print(f"  当前阶段: {state['current_stage']}")
     if state.get("blocked_at"):
         print(f"  ⏸ 阻塞于: {state['blocked_at']}  ({state['block_reason']})")
@@ -239,10 +263,162 @@ def cmd_status(args):
         rw = f" (rework×{info['review_round']})" if info["review_round"] > 0 else ""
         print(f"    {sym}  {stage:<30} {info['status']}{rw}")
     print(f"{'═'*58}\n")
+
+
+# ── Andon Cord：任意 Agent 可拉的紧急停止信号（AutoMCM_SOP.md §11）────────────
+
+def cmd_andon_pull(args):
+    state = load()
+    andon = state.setdefault("andon", {})
+    if andon.get("pulled"):
+        print(f"[andon] ⚠ 已经处于拉下状态（{andon.get('pulled_at')}，原因：{andon.get('reason')}），"
+              f"本次调用忽略。先 andon-clear 再重新拉。")
+        sys.exit(1)
+    andon["pulled"] = True
+    andon["reason"] = args.reason
+    andon["pulled_by"] = args.by or "unknown"
+    andon["pulled_at"] = now()
+    andon["cleared_at"] = None
+    andon["resolution"] = ""
+    save(state)
+    print(f"[andon] 🔴 已拉下 ANDON CORD。全流水线冻结，advance 一律被拒绝，直到人工确认并 andon-clear。")
+    print(f"  拉绳者: {andon['pulled_by']}")
+    print(f"  原因  : {andon['reason']}")
+    worklog.log("系统", f"🔴 Andon 拉下（{andon['pulled_by']}）：{andon['reason']}")
+
+
+def cmd_andon_clear(args):
+    state = load()
+    andon = state.setdefault("andon", {})
+    if not andon.get("pulled"):
+        print("[andon] 当前没有拉下的 andon，无需清除。")
+        sys.exit(0)
+    andon["pulled"] = False
+    andon["cleared_at"] = now()
+    andon["resolution"] = args.resolution
+    save(state)
+    print(f"[andon] ✓ 已清除。解决方案：{args.resolution}")
+    print(f"  （原告警原因 '{andon.get('reason')}' 已存档，未被覆盖，供事后审计）")
+    worklog.log("系统", f"🟢 Andon 清除：{args.resolution}")
+
+
+def cmd_andon_status(args):
+    state = load()
+    andon = state.get("andon", {})
+    if andon.get("pulled"):
+        print(f"🔴 PULLED — {andon.get('reason')}（{andon.get('pulled_by')} @ {andon.get('pulled_at')}）")
+        sys.exit(1)
+    else:
+        last = f"（上次：{andon.get('resolution')} @ {andon.get('cleared_at')}）" if andon.get("cleared_at") else ""
+        print(f"✓ 正常 {last}")
+        sys.exit(0)
     # Machine-readable return for shell scripts
     return state["current_stage"], state["stages"].get(
         state["current_stage"], {}
     ).get("status", "unknown")
+
+
+_KAIZEN_DIMS = ("significance", "robustness", "assumptions", "completeness")
+_KAIZEN_THRESHOLD = 4.0   # 均分 ≥ 此值视为质量已达标，见 AutoMCM_SOP.md §13.2
+
+
+def cmd_kaizen_assess(args):
+    """记录一次 Kaizen 质量自评，返回是否建议再打磨一轮。
+
+    四个维度均为 1-5 分（1=明显薄弱，5=充分令人信服），只在 sensitivity_analysis
+    已 approved 之后才有意义调用——Kaizen 打磨的是"已经正确的结果"，不是修 bug。
+    退出码 0 = PROCEED（放行，无需/无法再打磨），1 = ROUND_RECOMMENDED（建议打磨）。
+    """
+    for dim in _KAIZEN_DIMS:
+        score = getattr(args, dim)
+        if not 1 <= score <= 5:
+            sys.exit(f"[kaizen] --{dim} 必须在 1-5 之间，收到 {score}")
+
+    state = load()
+    kz = state.setdefault("kaizen", {"max_rounds": 2, "problems": {}})
+    pkey = str(args.problem_n)
+    prec = kz["problems"].setdefault(pkey, {"rounds_used": 0, "history": []})
+
+    scores = {dim: getattr(args, dim) for dim in _KAIZEN_DIMS}
+    avg = sum(scores.values()) / len(scores)
+    rounds_used = prec["rounds_used"]
+    max_rounds = kz.get("max_rounds", 2)
+
+    if avg >= _KAIZEN_THRESHOLD:
+        decision = "PROCEED"
+        reason = f"均分 {avg:.2f} ≥ 达标线 {_KAIZEN_THRESHOLD}，质量已足够，放行"
+    elif rounds_used >= max_rounds:
+        decision = "PROCEED"
+        reason = (f"均分 {avg:.2f} < {_KAIZEN_THRESHOLD}，但已达轮数上限 "
+                   f"({rounds_used}/{max_rounds})，强制放行，如实记录仍不够理想")
+    else:
+        decision = "ROUND_RECOMMENDED"
+        reason = (f"均分 {avg:.2f} < {_KAIZEN_THRESHOLD}，时间预算允许时建议打磨一轮"
+                   f"（{rounds_used}/{max_rounds} 轮已用）")
+
+    record = {
+        "time": now(), "scores": scores, "avg": round(avg, 2),
+        "weakest": args.weakest, "decision": decision,
+        "rounds_used_at_assess": rounds_used,
+    }
+    prec["history"].append(record)
+    prec["last_avg"] = record["avg"]
+    prec["last_decision"] = decision
+    save(state)
+
+    icon = "🟢" if decision == "PROCEED" else "🟡"
+    print(f"[kaizen] {icon} 问题 {args.problem_n} 质量自评：均分 {avg:.2f}/5"
+          f"（显著性{scores['significance']} 稳健性{scores['robustness']} "
+          f"假设合理性{scores['assumptions']} 论证完整性{scores['completeness']}）")
+    print(f"  最弱点：{args.weakest}")
+    print(f"  裁定：{decision} —— {reason}")
+    worklog.log("Agent", f"Kaizen 自评 问题{args.problem_n} 均分{avg:.2f} {decision}，最弱：{args.weakest}")
+    sys.exit(0 if decision == "PROCEED" else 1)
+
+
+def cmd_kaizen_round_start(args):
+    """登记开始一轮打磨。轮数上限内才允许，到顶直接拒绝（exit 1），逼迫放行而非无限打磨。"""
+    state = load()
+    kz = state.setdefault("kaizen", {"max_rounds": 2, "problems": {}})
+    pkey = str(args.problem_n)
+    prec = kz["problems"].setdefault(pkey, {"rounds_used": 0, "history": []})
+    max_rounds = kz.get("max_rounds", 2)
+
+    if prec["rounds_used"] >= max_rounds:
+        print(f"[kaizen] ⚠ 问题 {args.problem_n} 已用满 {max_rounds} 轮打磨上限，"
+              f"不得再开新一轮，请直接放行进入下一阶段。", file=sys.stderr)
+        sys.exit(1)
+
+    prec["rounds_used"] += 1
+    prec.setdefault("rounds", []).append({
+        "round": prec["rounds_used"], "started_at": now(), "plan": args.plan,
+    })
+    save(state)
+    remaining = max_rounds - prec["rounds_used"]
+    print(f"[kaizen] ↻ 问题 {args.problem_n} 第 {prec['rounds_used']} 轮打磨开始"
+          f"（还剩 {remaining} 轮额度）")
+    print(f"  计划：{args.plan}")
+    print(f"  提醒：改进后仍必须重新走 §4 强制验证协议，verify 不通过不得写入论文。")
+    worklog.log("Agent", f"Kaizen 第{prec['rounds_used']}轮打磨开始 问题{args.problem_n}：{args.plan}")
+
+
+def cmd_kaizen_status(args):
+    state = load()
+    kz = state.get("kaizen", {})
+    problems = kz.get("problems", {})
+    target = str(args.problem_n) if args.problem_n else None
+
+    if not problems or (target and target not in problems):
+        print(f"[kaizen] 问题 {target or '(全部)'} 暂无 Kaizen 记录。")
+        sys.exit(0)
+
+    max_rounds = kz.get("max_rounds", 2)
+    for pkey, prec in sorted(problems.items()):
+        if target and pkey != target:
+            continue
+        print(f"问题 {pkey}：{prec['rounds_used']}/{max_rounds} 轮已用，"
+              f"最近一次均分 {prec.get('last_avg', '—')}，裁定 {prec.get('last_decision', '—')}")
+    sys.exit(0)
 
 
 def cmd_start_stage(args):
@@ -362,6 +538,10 @@ def cmd_check_approval(args):
 
 def cmd_advance(args):
     state = load()
+    andon = state.get("andon", {})
+    if andon.get("pulled"):
+        sys.exit(f"[pipeline] 🔴 ANDON 已拉下，禁止 advance。原因：{andon.get('reason')}"
+                 f"（拉绳者：{andon.get('pulled_by')}）。先处理问题并执行 andon-clear。")
     stage = args.stage
     if stage not in state["stages"]:
         sys.exit(f"[pipeline] 未知阶段: {stage}")
@@ -381,10 +561,12 @@ def cmd_advance(args):
             state["stages"][next_stage]["started_at"] = now()
             print(f"[pipeline] ✓ {stage} → approved")
             print(f"[pipeline] ▶ 推进至: {next_stage}")
+            worklog.log("Agent", f"{stage} → approved，推进至 {next_stage}")
         else:
             state["current_stage"] = "complete"
             print(f"[pipeline] ✓ {stage} → approved")
             print(f"[pipeline] 🏁 流水线全部完成！")
+            worklog.log("Agent", f"{stage} → approved，流水线全部完成")
     save(state)
 
     # Clear APPROVED marker from human_intervention.md so it's ready for next round
@@ -430,6 +612,8 @@ def cmd_rework(args):
 
     print(f"[pipeline] ↩ {stage} → rework")
     print(f"[pipeline] 请阅读 human_intervention.md 中的修改意见后开始 Rework")
+    worklog.log("Agent", f"{stage} → rework（第{current_round + 1}次）"
+                + (f"，意见：{args.feedback}" if args.feedback else ""))
 
     # Clear REWORK marker (count=1 preserves history)
     if HUMAN_FILE.exists():
@@ -599,6 +783,10 @@ def main():
                     help="每阶段最大返工次数，超出后流水线暂停等待人工介入（默认 5）")
     pi.add_argument("--git",         action="store_true",
                     help="在 CUMCM_Workspace/ 下初始化竞赛 Git 仓库")
+    pi.add_argument("--skunk-works", action="store_true", dest="skunk_works",
+                    help="Project Skunk Works：轻量快速模式，见 AutoMCM_SOP.md §10")
+    pi.add_argument("--kaizen-max-rounds", type=int, default=2, dest="kaizen_max_rounds",
+                    help="Project Kaizen 每个子问题的最大打磨轮数，见 AutoMCM_SOP.md §13（默认 2）")
 
     # status
     sub.add_parser("status")
@@ -651,6 +839,32 @@ def main():
     sub.add_parser("suggest-parallel",
                    help="输出当前可并行启动的阶段名（AP 模式用）")
 
+    # andon-pull / andon-clear / andon-status — Andon Cord 紧急停止信号
+    pap = sub.add_parser("andon-pull", help="任意 Agent 拉下紧急停止信号，冻结流水线")
+    pap.add_argument("--reason", required=True, help="发现的问题，一句话说清楚")
+    pap.add_argument("--by", default="", help="拉绳的角色/Agent 名（如 Bletchley、Division-2）")
+
+    pac = sub.add_parser("andon-clear", help="人工确认问题已处理，解除冻结")
+    pac.add_argument("--resolution", required=True, help="怎么解决的，一句话说清楚")
+
+    sub.add_parser("andon-status", help="查看当前 andon 状态，退出码 0=正常 1=已拉下")
+
+    # kaizen-assess / kaizen-round-start / kaizen-status — Project Kaizen 质量打磨循环
+    pka = sub.add_parser("kaizen-assess", help="记录一次质量自评，退出码 0=放行 1=建议打磨")
+    pka.add_argument("--problem-n", type=int, required=True, dest="problem_n")
+    pka.add_argument("--significance", type=int, required=True, help="结果显著性/说服力，1-5")
+    pka.add_argument("--robustness", type=int, required=True, help="灵敏度稳健性，1-5")
+    pka.add_argument("--assumptions", type=int, required=True, help="假设合理性，1-5")
+    pka.add_argument("--completeness", type=int, required=True, help="论证完整性，1-5")
+    pka.add_argument("--weakest", required=True, help="最弱维度的一句话说明")
+
+    pkr = sub.add_parser("kaizen-round-start", help="登记开始一轮打磨，到轮数上限则拒绝")
+    pkr.add_argument("--problem-n", type=int, required=True, dest="problem_n")
+    pkr.add_argument("--plan", required=True, help="这一轮打算改进什么")
+
+    pks = sub.add_parser("kaizen-status", help="查看 Kaizen 打磨轮数与自评记录")
+    pks.add_argument("--problem-n", type=int, default=None, dest="problem_n")
+
     # contest-git — 竞赛工作区版本控制（嵌套子命令）
     pcg = sub.add_parser("contest-git", help="竞赛工作区 Git 版本控制")
     cg_sub = pcg.add_subparsers(dest="git_sub")
@@ -688,6 +902,12 @@ def main():
         "parallel-all-done":  cmd_parallel_all_done,
         "suggest-parallel":   cmd_suggest_parallel,
         "contest-git":        cmd_contest_git,
+        "andon-pull":         cmd_andon_pull,
+        "andon-clear":        cmd_andon_clear,
+        "andon-status":       cmd_andon_status,
+        "kaizen-assess":      cmd_kaizen_assess,
+        "kaizen-round-start": cmd_kaizen_round_start,
+        "kaizen-status":      cmd_kaizen_status,
     }
 
     if args.command in dispatch:

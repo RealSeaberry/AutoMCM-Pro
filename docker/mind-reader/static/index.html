@@ -655,6 +655,19 @@ header {
         font-size:12px;font-weight:700;text-align:center;">
       </div>
 
+      <!-- 更多动态 —— worklog / citations / 通用兜底(Los Alamos 产物等) -->
+      <!-- 2026-08 新增：任何未来新增的 memory/state 文件，就算没有专属展示，
+           也会通过服务器的通用兜底分支落进这里，不会因为前端没写死类型就
+           在 UI 上完全消失 -->
+      <div class="state-card">
+        <div class="state-card-title">更多动态</div>
+        <div id="activity-feed" style="font-size:11px;line-height:1.6;
+             color:var(--text-dim);font-family:var(--font-mono);
+             max-height:220px;overflow-y:auto">
+          <div style="color:var(--text-faint);font-style:italic">暂无更多动态…</div>
+        </div>
+      </div>
+
       <!-- Eval log -->
       <div class="state-card-title" style="margin-top:4px;padding:0 0 6px">
         用户反馈记录
@@ -1050,7 +1063,36 @@ function connect() {
     else if (msg.type === 'human_signal') {
       handleHumanSignal(msg.signal);
     }
+
+    else if (msg.type === 'worklog') {
+      pushActivity('📓', 'worklog.md 更新', msg.content.split('\n').slice(-3).join(' · '), msg.ts);
+    }
+
+    else if (msg.type === 'citations') {
+      pushActivity('📚', '引用池更新', `citations.bib 现有 ${msg.count} 条条目`, msg.ts);
+    }
+
+    else if (msg.type === 'activity') {
+      // 通用兜底——服务器没有专属分支的文件变化都走这里，path 就是相对
+      // 工作区的路径，前端不需要认识每一种新文件类型也能显示出来
+      pushActivity('📄', msg.path, msg.snippet.split('\n').slice(0, 2).join(' '), msg.ts);
+    }
   };
+
+  const MAX_ACTIVITY_ITEMS = 40;
+  const activityItems = [];
+  function pushActivity(icon, title, detail, ts) {
+    activityItems.unshift({ icon, title, detail, ts });
+    if (activityItems.length > MAX_ACTIVITY_ITEMS) activityItems.length = MAX_ACTIVITY_ITEMS;
+    const feed = document.getElementById('activity-feed');
+    feed.innerHTML = activityItems.map(it => `
+      <div style="padding:4px 0;border-bottom:1px solid var(--border-faint,rgba(255,255,255,.06))">
+        <span style="opacity:.7">${it.ts}</span> ${it.icon}
+        <strong style="color:var(--text)">${escHtml(it.title)}</strong><br>
+        <span style="opacity:.75">${escHtml(it.detail).slice(0, 140)}</span>
+      </div>
+    `).join('');
+  }
 
   // Keep-alive ping every 25s
   setInterval(() => {

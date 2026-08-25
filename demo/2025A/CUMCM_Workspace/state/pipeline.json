@@ -1,0 +1,180 @@
+{
+  "session_id": "20260825_122312",
+  "mode": "AP",
+  "contest": "CUMCM",
+  "tcn": "",
+  "problem_choice": "A",
+  "created_at": "2026-08-25 12:23:12",
+  "updated_at": "2026-08-25 13:27:06",
+  "current_stage": "complete",
+  "blocked_at": null,
+  "block_reason": "",
+  "stages": {
+    "problem_analysis": {
+      "status": "approved",
+      "started_at": "2026-08-25 12:23:47",
+      "completed_at": "2026-08-25 12:26:51",
+      "approved_at": "2026-08-25 12:26:55",
+      "review_round": 1,
+      "notes": ""
+    },
+    "data_preprocessing": {
+      "status": "approved",
+      "started_at": "2026-08-25 12:27:06",
+      "completed_at": "2026-08-25 12:28:36",
+      "approved_at": "2026-08-25 12:28:38",
+      "review_round": 1,
+      "notes": ""
+    },
+    "model_1_build": {
+      "status": "approved",
+      "started_at": "2026-08-25 12:45:38",
+      "completed_at": null,
+      "approved_at": "2026-08-25 13:05:49",
+      "review_round": 0,
+      "notes": ""
+    },
+    "model_1_verify": {
+      "status": "approved",
+      "started_at": "2026-08-25 13:05:49",
+      "completed_at": "2026-08-25 12:46:23",
+      "approved_at": "2026-08-25 13:05:58",
+      "review_round": 1,
+      "notes": ""
+    },
+    "model_2_build": {
+      "status": "approved",
+      "started_at": "2026-08-25 13:05:58",
+      "completed_at": null,
+      "approved_at": "2026-08-25 13:05:58",
+      "review_round": 0,
+      "notes": ""
+    },
+    "model_2_verify": {
+      "status": "approved",
+      "started_at": "2026-08-25 13:05:58",
+      "completed_at": "2026-08-25 13:06:16",
+      "approved_at": "2026-08-25 13:06:20",
+      "review_round": 1,
+      "notes": ""
+    },
+    "model_3_build": {
+      "status": "approved",
+      "started_at": "2026-08-25 13:06:45",
+      "completed_at": null,
+      "approved_at": "2026-08-25 13:18:27",
+      "review_round": 0,
+      "notes": ""
+    },
+    "model_3_verify": {
+      "status": "approved",
+      "started_at": "2026-08-25 13:18:27",
+      "completed_at": "2026-08-25 13:18:51",
+      "approved_at": "2026-08-25 13:18:55",
+      "review_round": 1,
+      "notes": ""
+    },
+    "sensitivity_analysis": {
+      "status": "approved",
+      "started_at": "2026-08-25 13:19:01",
+      "completed_at": "2026-08-25 13:19:53",
+      "approved_at": "2026-08-25 13:19:57",
+      "review_round": 1,
+      "notes": ""
+    },
+    "latex_draft": {
+      "status": "approved",
+      "started_at": "2026-08-25 13:20:09",
+      "completed_at": "2026-08-25 13:26:42",
+      "approved_at": "2026-08-25 13:26:46",
+      "review_round": 1,
+      "notes": ""
+    },
+    "final_compile": {
+      "status": "approved",
+      "started_at": "2026-08-25 13:26:52",
+      "completed_at": null,
+      "approved_at": "2026-08-25 13:27:06",
+      "review_round": 0,
+      "notes": ""
+    }
+  },
+  "total_reworks": 0,
+  "git_enabled": true,
+  "problem_count": 3,
+  "max_reworks": 5,
+  "skunk_works": false,
+  "andon": {
+    "pulled": false,
+    "reason": "",
+    "pulled_by": "",
+    "pulled_at": null,
+    "cleared_at": null,
+    "resolution": ""
+  },
+  "kaizen": {
+    "max_rounds": 2,
+    "problems": {
+      "1": {
+        "rounds_used": 0,
+        "history": [
+          {
+            "time": "2026-08-25 13:20:04",
+            "scores": {
+              "significance": 4,
+              "robustness": 4,
+              "assumptions": 3,
+              "completeness": 4
+            },
+            "avg": 3.75,
+            "weakest": "假设合理性：点-线段视线判据与无风/无阻力弹道为竞赛级简化",
+            "decision": "ROUND_RECOMMENDED",
+            "rounds_used_at_assess": 0
+          }
+        ],
+        "last_avg": 3.75,
+        "last_decision": "ROUND_RECOMMENDED"
+      },
+      "2": {
+        "rounds_used": 0,
+        "history": [
+          {
+            "time": "2026-08-25 13:20:04",
+            "scores": {
+              "significance": 4,
+              "robustness": 4,
+              "assumptions": 3,
+              "completeness": 4
+            },
+            "avg": 3.75,
+            "weakest": "假设合理性：多弹共用航向速度限制了三弹时间链的进一步拉长",
+            "decision": "ROUND_RECOMMENDED",
+            "rounds_used_at_assess": 0
+          }
+        ],
+        "last_avg": 3.75,
+        "last_decision": "ROUND_RECOMMENDED"
+      },
+      "3": {
+        "rounds_used": 0,
+        "history": [
+          {
+            "time": "2026-08-25 13:20:04",
+            "scores": {
+              "significance": 4,
+              "robustness": 4,
+              "assumptions": 3,
+              "completeness": 4
+            },
+            "avg": 3.75,
+            "weakest": "假设合理性：Q5 贪心分配为启发式，不保证全局最优",
+            "decision": "ROUND_RECOMMENDED",
+            "rounds_used_at_assess": 0
+          }
+        ],
+        "last_avg": 3.75,
+        "last_decision": "ROUND_RECOMMENDED"
+      }
+    }
+  }
+}

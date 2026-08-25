@@ -38,7 +38,9 @@
 \usepackage{tikz}
 \usepackage{pgfplots}
 \usepackage[ruled,vlined,linesnumbered]{algorithm2e}
-\usepackage{natbib}
+% natbib 要求 author-year 格式的 \citep/\citet，但本模板正文用标准 \cite +
+% plain \bibitem，直接加载会在编译时报 "Bibliography not compatible with
+% author-year citations" 致命错误——同 CUMCM 模板的修复，不加载 natbib。
 \usepackage{appendix}
 \usepackage{microtype}           % better text justification
 \usepackage{siunitx}             % units formatting
@@ -125,6 +127,12 @@ Our analysis yields the following key findings:
 \maketitle
 
 %% ── Table of Contents ────────────────────────────────────────────────────
+%% AutoMCM_SOP.md §17：COMAP 官方规则（Contest_AI_Policy / instructions.php）——
+%% 全篇合计（Summary Sheet + 正文 + 参考文献 + 目录 + 附录代码）硬上限 25 页，
+%% 目录本身计入这 25 页；tocdepth 限到 2（section+subsection，不列
+%% subsubsection）把目录控制在一页左右。若用到 AI，末尾追加的
+%% "Report on Use of AI Tools" 单独一节不计入 25 页（见文末对应位置）。
+\setcounter{tocdepth}{2}
 \tableofcontents
 \newpage
 
@@ -411,5 +419,19 @@ Author, C. (Year). \textit{Book Title}. Publisher.
 \end{lstlisting}
 
 \end{appendices}
+
+%% ══════════════════════════════════════════════════════════════════
+%%  REPORT ON USE OF AI TOOLS（仅在实际用到 AI 工具时添加，不计入 25 页）
+%% ══════════════════════════════════════════════════════════════════
+%% 官方格式（COMAP Contest_AI_Policy）：每条 = 工具名 (版本/日期) + 一句话用途
+%% 说明，或 Query/Output 逐字记录（篇幅较长时可用后者的摘要版）。
+%% 用 scripts/ai_usage_doc.py 生成条目文本，本模板不预先填入任何内容——
+%% 是否使用 AI、用了哪些、要不要加这一节，由使用者自己决定（AutoMCM_SOP.md §17）。
+% \section*{Report on Use of AI Tools}
+% \begin{enumerate}
+% \item \textit{Tool Name} (version/date) \\
+%       Query: <exact wording input to the tool> \\
+%       Output: <complete output from the tool>
+% \end{enumerate}
 
 \end{document}

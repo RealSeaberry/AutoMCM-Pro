@@ -25,7 +25,11 @@
 \usepackage{caption}                 % 标题定制
 \usepackage{fancyhdr}                % 页眉页脚
 \usepackage{setspace}                % 行距
-\usepackage{natbib}                  % 参考文献
+% natbib 与本模板的 plain \bibitem 参考文献不兼容（natbib 要求 author-year
+% 格式的 \citep/\citet，直接编译会报 "Bibliography not compatible with
+% author-year citations" 致命错误）；模板正文全程只用标准 \cite，不需要
+% natbib，故不加载（AutoMCM_SOP §17 格式合规要求）——这是修复模板本身，
+% 不是"生成论文时再手动删掉"的临时补丁。
 \usepackage{appendix}                % 附录
 
 \pgfplotsset{compat=1.18}
@@ -88,16 +92,48 @@
 \author{}
 \date{}
 
+%% ======================== 格式合规提醒（AutoMCM_SOP.md §17，不渲染进论文）========
+%% 依据《全国大学生数学建模竞赛论文格式规范（2026年修订稿）》：
+%%   - 正文（不含附录）不超过 30 页，不要目录
+%%   - 摘要专用页开始编页码（阿拉伯数字，页脚居中），本模板已配置
+%%   - 电子版提交件第一页必须是摘要专用页——承诺书、编号专用页不放进电子版，
+%%     下方已注释掉这两页，只在需要打印纸质版留存时取消注释
+%%   - 论文摘要页/正文/附录任何地方不能出现参赛者身份、学校、赛区信息
+%%     （quality_gate.py anon-check 会做启发式扫描，但不能完全替代人工复查）
+%% ======================================================================
+
 %% ======================== 正文开始 ========================
 \begin{document}
 
-\maketitle
-\thispagestyle{empty}
+%% ---- 纸质版留存专用：承诺书 + 编号专用页 ----------------------------------
+%% 电子版提交前必须保持注释状态（规范第十条），仅打印纸质版留存时取消注释：
+% \begin{titlepage}
+% \thispagestyle{empty}
+% \begin{center}
+% \vspace*{2cm}
+% {\Large 全国大学生数学建模竞赛承诺书}\\[2em]
+% （此处填写官方承诺书标准文本，各赛区可能略有差异，以当年官方模板为准）
+% \end{center}
+% \newpage
+% \thispagestyle{empty}
+% \begin{center}
+% \vspace*{2cm}
+% {\Large 编号专用页}\\[2em]
+% （此页由承办方填写赛区、题号、编号，参赛队不要自行填写）
+% \end{center}
+% \end{titlepage}
+%% ---------------------------------------------------------------------------
 
-%% ---------------------- 摘要 ----------------------
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\maketitle
+\thispagestyle{plain}
+
+%% ---------------------- 摘要（电子版第 1 页，从这页开始编页码）--------------
 \begin{abstract}
 \noindent
-（在此撰写摘要。摘要需概括：研究背景、所建立的数学模型（列出模型名称）、核心求解方法、主要结论与数值结果。建议300字以内，突出创新点与关键数值。）
+（在此撰写摘要。摘要需概括：研究背景、所建立的数学模型（列出模型名称）、核心求解方法、主要结论与数值结果。原则上不超过一页，不需要翻译成英文。）
 
 \vspace{1em}
 \noindent\textbf{关键词：}数学规划；%
@@ -105,8 +141,7 @@
 \end{abstract}
 
 \newpage
-\tableofcontents
-\newpage
+%% 官方规范明确要求"不要目录"——\tableofcontents 不得出现在正文里
 
 %% ==================== 1. 问题重述 ====================
 \section{问题重述}

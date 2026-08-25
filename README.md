@@ -1,11 +1,11 @@
 # AutoMCM-Pro
 
-> 重新定义人机协作边界：Claude Code 担任 Autopilot（自动驾驶仪），人类担任 Copilot
+> 重新定义人机协作边界：AI Coding Agent 担任 Autopilot（自动驾驶仪），人类担任 Copilot
 
-[![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/code)
+[![Multi-Runtime](https://img.shields.io/badge/Runtime-Claude%20Code%20%7C%20dsh%20%7C%20opencode%20%7C%20Codex-blue)](#多-runtime-支持)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![Demo: CUMCM 2025A](https://img.shields.io/badge/Demo-CUMCM%202025A-orange)](demo/)
-[![Version](https://img.shields.io/badge/version-v0.2.0-brightgreen)](CHANGELOG.md)
+[![Demos: CUMCM 2020C & 2025A](https://img.shields.io/badge/Demos-2020C%20%7C%202025A-orange)](demo/)
+[![Version](https://img.shields.io/badge/version-v0.3.0-brightgreen)](CHANGELOG.md)
 
 ---
 
@@ -115,7 +115,25 @@ not_started → in_progress → pending_review → approved
 ### Mind-Reader 实时思维可视化
 
 基于 FastAPI + WebSocket 的实时 Web UI（`http://localhost:8080`），渲染 AI 在 `memory/thought_process.md` 中记录的推理过程，支持 KaTeX 数学公式、代码高亮和流水线进度看板。
-![web ui应用](./demo/CUMCM_Workspace/demo-2.png)
+![web ui应用](./demo/mind_reader_ui.png)
+
+**启动方式**：
+
+```bash
+# 方式一：Docker（docker-compose.yml 已有的服务，需要本机装 Docker）
+docker compose up mind-reader
+
+# 方式二：原生启动（不需要 Docker，Agent 可以自己检测依赖、按需安装并启动，
+# 很多沙盒化 runtime 环境里没有 Docker，这条路径就是为此准备的）
+python scripts/launch_mind_reader.py --check   # 只检查依赖
+python scripts/launch_mind_reader.py           # 后台启动，打印 URL 后立即返回
+python scripts/launch_mind_reader.py --workspace /path/to/CUMCM_Workspace --port 8090
+```
+
+2026-08 更新：文件监听改为递归（不再漏掉 `memory/ledgers/`、`state/messages/` 这类
+子目录里的 Los Alamos 产物），并新增"更多动态"面板——`worklog.md`/`citations.bib`
+有专属展示，其余任何未来新增的文件类型即使前端没有针对性 UI，也会通过通用兜底
+广播出现在这个面板里，不会因为前端代码没跟上就在界面上彻底消失。
 
 ### AI 图像生成（`/draw-image`）
 
@@ -182,6 +200,45 @@ python scripts/pipeline_manager.py contest-git tag final-v2 "第二轮修改后�
 
 竞赛 Git 仓库位于 `CUMCM_Workspace/.git`，与 AutoMCM-Pro 工具仓库完全独立。  
 `latex_draft` approved → 自动打 `draft-v1` tag；`final_compile` approved → 自动打 `final-v1` tag。
+
+### Los Alamos 探索层与治理 Addon
+
+叠加在主流水线（内部代号 **Project Apollo**）之上的可选层，详细设计见
+[`LOS_ALAMOS_DESIGN.md`](LOS_ALAMOS_DESIGN.md)，完整规范见 [`AutoMCM_SOP.md`](AutoMCM_SOP.md)：
+
+| Addon | 灵感来源 | 做什么 | 默认触发方式 |
+|---|---|---|---|
+| **Los Alamos** | 曼哈顿计划的多假设并行探索 | 同一子问题存在真实建模范式分歧时，展开多个假设分支各自 build+verify，经红队复核后走熵权-TOPSIS（客观量化）+ 判审团两两比较（定性）双轨裁决 | Director 自主判断（题目要求比较方法 / 题目复杂度初判 / 文献发现多范式等 6 条准则） |
+| **RAND Delphi** | 兰德公司德尔菲法 | Track 2 判审团分歧过高时，先跑最多 2 轮匿名收敛，收敛了就不用升级人类终审 | 分歧熵超阈值自动触发 |
+| **Project Skunk Works** | 洛克希德臭鼬工厂 | 轻量快速模式：文献门槛降到 ≥1 篇、Checkpoint 报告更简短；§4 强制代码自证不放宽 | 人类明确要求，或 Director 判断时间预算紧迫时自主触发（触发前必须先告知） |
+| **Andon Cord** | 丰田生产方式 | 任意角色发现根本性问题时可拉绳，硬阻断 `advance` 直到人工确认解除 | 任意时刻手动 |
+| **NASA Go/No-Go** | 阿波罗任务发射前检查 | `final_compile` 前强制轮询 5-6 个"分系统"（Andon/阶段完整性/图片/占位符/匿名性/假设 ledger），全绿才放行 | 强制，无法跳过 |
+| **Project Kaizen** | 丰田持续改善 | 结果已验证正确但主动判断"还能不能更好"，四维度自评（显著性/稳健性/假设合理性/论证完整性），最多打磨 2 轮 | 均分未达标且时间预算允许时自主触发 |
+
+配套工具：
+- **工作日志**（`scripts/worklog.py`）——单文件、简体中文、完整记录用户消息/Agent 决策/门控结果，阶段推进等大部分内容自动写入，零额外 token 成本
+- **文献真实性核验**（`scripts/cite_check.py`）——DOI 用 CrossRef API 核验是否真实存在，不只是检查"像不像引用"；跨子问题共享去重的 `citations.bib`
+- **写作风格打磨**（`scripts/style_check.py`）——六项客观指标降低"AI 生成感"（列表堆砌、套话、机械过渡骨架、句长/段落长度均匀度、跨章节短语重复），不靠模糊的"读起来自然点"
+
+### 多 Runtime 支持
+
+同一套协议（`AutoMCM_SOP.md`）在四个 coding agent runtime 上都有绑定，均通过真实执行任务验证（非文档推断）：
+
+| Runtime | 绑定文件 | 详情 |
+|---|---|---|
+| Claude Code | `.claude/skills/auto-mcm/SKILL.md` | 权威完整版，其余三份均交叉引用它 |
+| DeepSeek Harness（dsh） | `.dsh/skills/auto-mcm/SKILL.md` | [`DSH_INTEGRATION.md`](DSH_INTEGRATION.md) |
+| opencode | `.opencode/skills/auto-mcm/SKILL.md` | [`OPENCODE_INTEGRATION.md`](OPENCODE_INTEGRATION.md) |
+| OpenAI Codex CLI | `.agents/skills/auto-mcm/SKILL.md` | [`CODEX_INTEGRATION.md`](CODEX_INTEGRATION.md) |
+
+### 官方格式合规
+
+`AutoMCM_SOP.md` §17：论文模板已同步《全国大学生数学建模竞赛论文格式规范
+（2026年修订稿）》与 MCM/ICM（COMAP）官方规则；`quality_gate.py anon-check`
+做匿名性启发式检查；`scripts/ai_usage_doc.py` 按各自赛制官方格式生成 AI 工具
+使用声明（CUMCM 的独立 PDF支撑材料 / MCM 的 `Report on Use of AI Tools` 章节），
+取材于工作日志、不自动插入论文——**AutoMCM-Pro 不对使用者怎么用这份工具做限定，
+但"核心建模与分析必须由参赛队独立完成"这条规则是使用者自己需要把握的边界**。
 
 ---
 
@@ -259,35 +316,45 @@ AI：明白，已更新约束。开始编码……（后续相同）
 
 ---
 
-## Demo：2025年国赛A题（几乎零干预输出）
+## Demo：两个真实国赛题（DeepSeek Harness 全自动跑通）
 
-> **说明**：以下演示中，流水线全程在 AP（Autopilot）模式下自动运行。人类的全部输入只有以下 5 条提示词。我们认为这是一个接近零干预的基线输出——通过更多的战略性干预，完全可以获得质量更高的论文。
+> **说明**：以下两个案例都是真实官方赛题（不是虚构案例），流水线全程在 **DeepSeek Harness（dsh）headless 模式**下一次性自动跑完唤醒协议→数据处理→建模验证→灵敏度分析→论文撰写→编译，过程中**没有任何人类确认节点**（headless 模式不挂载人类问答工具，AP 模式全程自评自批）。全部人类输入只有启动时的一条任务提示词。完整产物见 [`demo/`](demo/) 目录，`demo/2020C/` 和 `demo/2025A/` 各自独立。
 
-### 全部人类输入（按时间顺序）
+### 一个诚实的补充说明：为什么不能直接采信 Agent 的"完成报告"
 
-**流水线进行中（problem_analysis 阶段完成后）：**
+两次 demo 都用了同一套 dsh 流水线，但 dsh 当时跑的模型（`deepseek-v4-flash`）**不支持图像输入**——它自称做了"可视化自我审查"，实际只能做像素/文件层面的程序化检查，从没有真正**看过**一张图。2025A 案例第一轮产出的可视化质量确实不理想；2020C 案例跑完后，我们没有直接相信完成报告，而是用有视觉能力的 Claude Code 把全部 21 张图逐一复核，真的发现了 2 处实质 bug（单类目堆叠柱状图退化成一整块纯色矩形）和 1 处配色误用（相关系数矩阵错用单向渐变色而非发散色板），定位到源码后直接修正、重新出图、重新编译，页数和结论数字保持不变。这个"自动跑完 → 有视觉能力的 Agent 复核 → 定点修正"的循环，我们认为比"一次性全自动零干预"更诚实地反映了当前多 Agent、多模型协作的真实局限。
 
-1. `[APPROVED]`
-   *（确认 AI 对题目的理解正确，同意继续数据预处理）*
+### 2020 年国赛 C 题：中小微企业的信贷决策
 
-2. `[APPROVED]`
-   *（确认数据预处理方案，同意进入建模阶段）*
+原始附件约 **110 万行**发票明细，从 `mcm.edu.cn` 官网下载核验，真实数据非虚构。
 
-**流水线完成后（所有 11 个阶段均已 AI 自动推进完毕）：**
+- **问题一**：对附件 1 中 123 家有信贷记录企业，从约 37 万条发票中向量化聚合出 39 维经营特征，训练逻辑回归违约概率模型（5 折 CV AUC **0.935**，随机森林对照 0.850），预测违约概率随信誉评级 A/B/C/D 严格单调（0.057/0.088/0.149/0.711），与银行专家评级 Spearman 相关系数 **0.645**；年度信贷总额 1 亿元时，按期望收益最大化分配给 14 家企业，期望收益 352 万元。
+- **问题二**：把问题一校准的评分器迁移到附件 2 中 302 家无信贷记录企业（约 73 万条发票），PSI 检验分布偏移、按 PD 分层映射伪评级，1 亿元总额下放贷 12 家（均为最优层级），期望收益 356 万元。
+- **问题三**：用发票行为特征对 302 家企业做 KMeans 聚类，画出 4 类企业的发票行为画像（雷达图），叠加新冠疫情式突发冲击的行业异质性系数，给出信贷调整策略。
+- 全部三问代码验证 **11/11、13/13、13/13** 全通过，灵敏度分析 **12/12** 通过；最终论文 **30 页（正文 21 页）**，18 张图全部是 2D 图表（热力图、雷达图、tornado 图、按额度排序的条形图等），零 3D 图——按 SOP §18"画图前先查这类问题的常规可视化方式"的新规则执行。
 
-3. `请增加更多的图表和可视化，并且确保可视化的中文文字都能正确显示`
+产物见 `demo/2020C/`（原始的两份大体量发票附件因文件过大未随仓库提交，题目原文 `.docx` 与全部衍生特征/结果 CSV 已保留）：论文 [`final_paper_2020C_credit_decision.pdf`](demo/2020C/CUMCM_Workspace/output/final_paper_2020C_credit_decision.pdf)、`demo/2020C/CUMCM_Workspace/memory/thought_process.md`。
 
-4. `能否编译成pdf`
+![2020C 论文摘要页](./demo/2020C/CUMCM_Workspace/abstract_page.png)
+![2020C 123家企业风险画像热力图](./demo/2020C/CUMCM_Workspace/risk_heatmap_page.png)
 
-5. `请在论文中增加描述性的语言，增加文字长度。请美化可视化。修改后再次编译`
+### 2025 年国赛 A 题：烟幕干扰弹的投放策略（NASA 技术报告风格可视化）
 
----
+无人机投放烟幕干扰弹掩护真目标对抗来袭导弹的三维视线遮挡几何问题，五个递进子问题。
 
-流水线共运行约 **1小时34分钟**，完成 11 个流水线阶段，通过 144 项代码验证，全程 AI 自动推进（仅前两条为流水线内必要的人工确认节点）。
+- **问题一**：给定策略正演计算，有效遮蔽时长 **1.410 s**。
+- **问题二**：放开航向/速度/投放时刻/起爆延迟四个自由度做单弹优化，物理启发多起点+坐标轮换精化，提升至 **4.611 s**（+227%）。
+- **问题三**：单机三弹投放时序优化，并集遮蔽 **7.263 s**。
+- **问题四**：三机协同各投一弹，并集遮蔽 **15.354 s**。
+- **问题五**：5 架无人机、每机至多 3 枚弹，对 3 枚来袭导弹分阶段分配（单弹优化→贪心分配→局部精化），总遮蔽时长 **28.136 s**。
+- 全部代码验证通过，灵敏度分析显示模型对关键参数（导弹速度、云团有效半径）总体稳健；论文 **28 页（正文 20 页）**。
 
-具体建模过程、思考链、生成图表和最终论文详见 [`demo/`](demo/) 目录。**建议直接阅读 `demo/CUMCM_Workspace/latex/main.tex`（或编译后的 PDF）和 `demo/CUMCM_Workspace/memory/thought_process.md`，感受 AI 的完整推理过程。**
+这个案例的可视化经过了三轮迭代：dsh 第一版效果不理想 → 人工用 `fit3d_axes` 等工具修复 3D 视角留白/文字压字问题 → 按用户要求改造成 **NASA 技术报告/轨道力学图风格**（白底、密集细网格+加粗主网格、黑白主线条、NASA Blue `#0B3D91`/NASA Red `#FC3D21` 只用于关键标注，四边完整描边），全部 9 张图统一重绘，建模结论数字全程未变。
 
-![测试论文的摘要页](./demo/CUMCM_Workspace/demo.png)
+产物见 `demo/2025A/`：论文 [`final_paper_2025A_smoke_screen.pdf`](demo/2025A/CUMCM_Workspace/output/final_paper_2025A_smoke_screen.pdf)、`demo/2025A/CUMCM_Workspace/memory/thought_process.md`。
+
+![2025A 论文摘要页](./demo/2025A/CUMCM_Workspace/abstract_page.png)
+![2025A NASA风格灵敏度tornado图](./demo/2025A/CUMCM_Workspace/nasa_style_tornado_page.png)
 
 ---
 
@@ -299,6 +366,7 @@ AI：明白，已更新约束。开始编码……（后续相同）
 - Python 3.10+
 - 基础依赖：`pip install pdfplumber scipy numpy matplotlib pandas openpyxl`
 - 可选：TeX Live 或 MiKTeX（LaTeX 编译，也可用 Docker 替代）
+- **若要编译 MCM/ICM 模板**（`templates/mcm_template.tex`）：额外需要 `mcmthesis` 宏包（`tlmgr install mcmthesis`，或见 [mcmthesis 项目](https://github.com/latexstudio-org/mcmthesis)）——多数 TeX Live 精简安装默认不带，CUMCM 模板不需要这条
 - 可选（AI 图像生成）：`pip install openai>=1.0` + `OPENAI_API_KEY` 环境变量，或 OpenAI Codex 订阅
 
 ### 安装命令
@@ -330,38 +398,52 @@ bash uninstall.sh
 
 ```
 AutoMCM-Pro/
-├── .claude/skills/
+├── .claude/skills/               # Claude Code 绑定（权威完整版）
 │   ├── auto-mcm/SKILL.md        # 统一入口（AP/MANUAL 双模式，含多 Agent 并行策略）
 │   ├── cumcm-master/SKILL.md    # 国赛专用
 │   ├── mcm-master/SKILL.md      # 美赛专用
 │   └── draw-image/SKILL.md      # AI 图像生成（gpt-image-2，含 Codex OAuth 支持）
-├── AutoMCM_SOP.md               # 操作准则（Skill 行为的最终权威）
-├── CHANGELOG.md                 # 版本变更记录
-├── install.sh / uninstall.sh    # 安装/卸载
-├── init_gitops.sh               # 交互式初始化引导
-├── docker-compose.yml           # 容器化环境（Python + TeX Live）
+├── .dsh/skills/auto-mcm/         # DeepSeek Harness 绑定
+├── .opencode/skills/auto-mcm/    # opencode 绑定
+├── .agents/skills/auto-mcm/      # Codex CLI 绑定
+├── AutoMCM_SOP.md                # 操作准则（Skill 行为的最终权威，§1~§17）
+├── LOS_ALAMOS_DESIGN.md / _INTEGRATION.md / _METHOD_CATALOG.md  # 探索层设计与方法库
+├── DSH_INTEGRATION.md / OPENCODE_INTEGRATION.md / CODEX_INTEGRATION.md  # 三个 runtime 绑定背景
+├── CHANGELOG.md                  # 版本变更记录
+├── install.sh / uninstall.sh     # 安装/卸载
+├── init_gitops.sh                # 交互式初始化引导
+├── docker-compose.yml            # 容器化环境（Python + TeX Live）
 ├── scripts/
-│   ├── pipeline_manager.py      # GitOps 状态机 CLI（含 suggest-parallel/parallel/contest-git）
+│   ├── pipeline_manager.py      # GitOps 状态机 CLI（含并行/contest-git/andon/kaizen）
 │   ├── contest_git.py           # 竞赛工作区版本控制（CUMCM_Workspace/.git）
 │   ├── draw_image.py            # OpenAI gpt-image-2 图像生成（含 Codex 认证检测）
-│   ├── quality_gate.py          # 建模质量门控：文献/数值/验证报告/一致性（4门控 CLI）
+│   ├── quality_gate.py          # 建模质量门控 CLI（文献/数值/验证/一致性/匿名/发射前检查等）
+│   ├── cite_check.py            # 文献真实性核验（CrossRef API）+ 共享引用池
+│   ├── style_check.py           # 写作风格打磨：降低"AI 生成感"六项客观检查
+│   ├── worklog.py               # 工作日志：单文件简体中文完整记录
+│   ├── ai_usage_doc.py          # AI 工具使用声明生成（CUMCM/MCM 各自官方格式）
 │   ├── security_check.py        # 安全检查：路径遍历/密钥泄露/工作区扫描（CLI）
-│   ├── compile_pdf.py           # 跨平台 LaTeX 编译（Python）
+│   ├── plot_style.py            # 统一图表风格：中文字体自动检测 + 色盲安全配色 + 印刷级 DPI
+│   ├── compile_pdf.py           # 跨平台 LaTeX 编译（含页数统计与超标提醒）
 │   ├── setup_workspace.py       # 工作区目录初始化
-│   └── agent_memory_manager.py  # 记忆管理工具
+│   ├── launch_mind_reader.py    # 原生启动 Mind-Reader（不需要 Docker）
+│   ├── agent_memory_manager.py  # 记忆管理工具
+│   └── los_alamos/              # 可选探索层 addon：多假设并行建模 + 双轨裁决（见 LOS_ALAMOS_DESIGN.md）
 ├── templates/
-│   ├── latex_template.tex       # CUMCM 论文模板（10节中文格式）
-│   ├── mcm_template.tex         # MCM/ICM 论文模板（mcmthesis）
+│   ├── latex_template.tex       # CUMCM 论文模板（已同步 2026 官方格式规范）
+│   ├── mcm_template.tex         # MCM/ICM 论文模板（mcmthesis，已同步 COMAP 规则）
 │   └── mcm_memo_template.tex    # MCM 实用性文件模板（单页 Memo）
-├── demo/                        # 2025国赛A题完整演示产物
+├── demo/                        # 两个真实赛题完整演示产物（dsh headless 全自动）
+│   ├── 2020C/                   # 2020国赛C题：中小微企业的信贷决策
+│   └── 2025A/                   # 2025国赛A题：烟幕干扰弹的投放策略（NASA风格可视化）
 └── CUMCM_Workspace/             # 运行时工作目录（每次竞赛独立拷贝）
     ├── data/                    # 赛题与数据文件
     ├── src/models/              # 求解代码
     ├── src/verifications/       # 验证脚本（强制配套）
     ├── latex/                   # LaTeX 源文件与图表
-    ├── memory/                  # 思考过程与推理链
+    ├── memory/                  # 思考过程/推理链/工作日志/引用池
     ├── state/                   # GitOps 流水线状态
-    └── output/                  # 最终 PDF 与结果表格
+    └── output/                  # 最终 PDF、AI 使用声明与结果表格
 ```
 
 ---
@@ -498,6 +580,26 @@ Beyond pass/fail verification, v0.2.0 adds five quality checkpoints that catch "
 
 A FastAPI + WebSocket web UI at `http://localhost:8080` renders the AI's thought process from `memory/thought_process.md` in real time, with KaTeX math, code highlighting, and a pipeline progress dashboard.
 
+**Launch options**:
+
+```bash
+# Option 1: Docker (the docker-compose.yml service, requires Docker locally)
+docker compose up mind-reader
+
+# Option 2: Native (no Docker needed — an Agent can detect deps, install them
+# on demand, and launch it itself; many sandboxed runtime environments don't
+# have Docker, and this path exists for exactly that case)
+python scripts/launch_mind_reader.py --check   # dependency check only
+python scripts/launch_mind_reader.py           # background launch, prints URL and returns
+python scripts/launch_mind_reader.py --workspace /path/to/CUMCM_Workspace --port 8090
+```
+
+2026-08 update: file watching is now recursive (no longer misses Los Alamos
+artifacts under `memory/ledgers/` or `state/messages/`), and a new "More
+Activity" panel shows a generic fallback feed — `worklog.md`/`citations.bib`
+get dedicated displays, and any future new file type still surfaces here
+through a generic broadcast even without bespoke frontend code.
+
 ### AI Image Generation (`/draw-image`)
 
 New in v0.2.0: the `/draw-image` skill calls OpenAI **gpt-image-2** to generate flowcharts, architecture diagrams, and conceptual illustrations. It is intentionally limited to **non-data figures** — data-driven charts are still generated by Python code to ensure reproducibility.
@@ -555,6 +657,58 @@ python scripts/pipeline_manager.py contest-git tag final-v2 "post-revision final
 
 The `CUMCM_Workspace/.git` repo is fully independent from the AutoMCM-Pro tool repo.  
 `latex_draft` approved → auto-tag `draft-v1`; `final_compile` approved → auto-tag `final-v1`.
+
+### Los Alamos Exploration Layer & Governance Addons
+
+An optional layer stacked on top of the main pipeline (internal codename
+**Project Apollo**); full design in [`LOS_ALAMOS_DESIGN.md`](LOS_ALAMOS_DESIGN.md),
+full spec in [`AutoMCM_SOP.md`](AutoMCM_SOP.md):
+
+| Addon | Inspired by | What it does | Default trigger |
+|---|---|---|---|
+| **Los Alamos** | Manhattan Project's parallel multi-hypothesis exploration | When a sub-problem has genuine modeling-paradigm disagreement, spawns multiple hypothesis branches to build+verify independently, red-team-reviewed, then dual-track adjudicated (objective entropy-weight+TOPSIS vs. qualitative pairwise judge panel) | Director's autonomous judgment (6 criteria: explicit request / problem-complexity initial judgment / literature finds multiple paradigms / etc.) |
+| **RAND Delphi** | RAND Corporation's Delphi method | When Track 2 judge-panel disagreement is too high, runs up to 2 anonymous convergence rounds before escalating to human sign-off | Auto, when disagreement entropy exceeds threshold |
+| **Project Skunk Works** | Lockheed's Skunk Works | Lightweight mode: citation bar drops to ≥1, shorter Checkpoint reports; §4 mandatory self-verification is never relaxed | Explicit human request, or Director's autonomous judgment under a genuine time-pressure signal (must announce before switching) |
+| **Andon Cord** | Toyota Production System | Any role can pull it on discovering a fundamental problem, hard-freezing `advance` until a human clears it | Manual, any time |
+| **NASA Go/No-Go** | Apollo pre-launch poll | Mandatory 5–6-subsystem poll (Andon / stage completeness / images / placeholders / anonymity / Los Alamos assumption ledger) before `final_compile` | Mandatory, cannot be skipped |
+| **Project Kaizen** | Toyota's continuous improvement | After results are already verified correct, self-assesses whether they could still be better on 4 dimensions (significance / robustness / assumption soundness / argument completeness); up to 2 polish rounds | Autonomous, when score is below target and time budget allows |
+
+Supporting tools:
+- **Work log** (`scripts/worklog.py`) — single-file, Simplified Chinese, complete
+  record of user messages / Agent decisions / gate results; most of it
+  auto-logged at zero extra token cost
+- **Citation authenticity verification** (`scripts/cite_check.py`) — DOIs
+  verified via the CrossRef API (catches hallucinated citations, not just
+  format-shape matching); a shared, deduplicated `citations.bib` across
+  sub-problems
+- **Writing-style polish** (`scripts/style_check.py`) — six objective checks
+  to reduce "AI-generated feel" (list-heavy narrative, stock phrases,
+  mechanical transition skeletons, sentence/paragraph-length uniformity,
+  cross-section phrase repetition) — not a vague "make it sound more natural"
+
+### Multi-Runtime Support
+
+The same protocol (`AutoMCM_SOP.md`) is bound to four coding-agent runtimes,
+each verified via real executed tasks (not documentation inference):
+
+| Runtime | Binding file | Details |
+|---|---|---|
+| Claude Code | `.claude/skills/auto-mcm/SKILL.md` | Canonical full version; the other three cross-reference it |
+| DeepSeek Harness (dsh) | `.dsh/skills/auto-mcm/SKILL.md` | [`DSH_INTEGRATION.md`](DSH_INTEGRATION.md) |
+| opencode | `.opencode/skills/auto-mcm/SKILL.md` | [`OPENCODE_INTEGRATION.md`](OPENCODE_INTEGRATION.md) |
+| OpenAI Codex CLI | `.agents/skills/auto-mcm/SKILL.md` | [`CODEX_INTEGRATION.md`](CODEX_INTEGRATION.md) |
+
+### Official Format Compliance
+
+`AutoMCM_SOP.md` §17: paper templates are synced to the official《全国大学生
+数学建模竞赛论文格式规范（2026年修订稿）》and the MCM/ICM (COMAP) rules;
+`quality_gate.py anon-check` does a heuristic anonymity scan;
+`scripts/ai_usage_doc.py` generates AI-tool-usage disclosures in each
+contest's own official format (a standalone PDF for CUMCM, a `Report on Use
+of AI Tools` section for MCM/ICM), sourced from the work log and never
+auto-inserted into the paper — **AutoMCM-Pro does not dictate how you use
+this tool, but the rule that "core modeling and analysis must be completed
+independently by the team" is a boundary the user needs to own.**
 
 ---
 
@@ -637,36 +791,45 @@ AI:   Updated. Starting implementation…
 
 ---
 
-## Demo: CUMCM 2025 Problem A — Near-Zero Intervention
+## Demo: Two Real Contest Problems — Fully Autonomous on DeepSeek Harness
 
-> The pipeline ran in AP (Autopilot) mode throughout. The **complete human input for the entire session** is just the 5 prompts listed below. This is a near-zero-intervention baseline output. With more strategic interventions, significantly higher quality is achievable.
+> Both cases below are real official contest problems (not synthetic). Each pipeline ran end-to-end — wake protocol → data processing → modeling/verification → sensitivity analysis → paper drafting → compilation — in a single **DeepSeek Harness (dsh) headless** run with **zero human checkpoints** during execution (headless mode has no human-question tool mounted; AP mode self-reviews every checkpoint). The complete human input was a single task prompt at launch. Full artifacts are in [`demo/`](demo/), with `demo/2020C/` and `demo/2025A/` as independent cases.
 
-### All Human Inputs (chronological)
+### An honest caveat: why we can't just take the agent's completion report at face value
 
-**During the pipeline (after `problem_analysis` stage):**
+Both demos used the same dsh pipeline, but the model dsh was running (`deepseek-v4-flash`) **has no image-input support** — it claimed to have done "visual self-review" of the charts, but that could only ever be a file/pixel-level programmatic check; it never actually *looked* at a single image. The 2025A case's first-pass charts weren't good; for the 2020C case, instead of trusting the completion report, we had vision-capable Claude Code review all 21 generated figures directly, and found 2 real bugs (single-category stacked bar charts collapsing into a solid-color rectangle) plus 1 colormap misuse (a signed correlation matrix rendered with a one-directional gradient instead of a diverging palette). Both were traced to source and fixed, figures regenerated, PDF recompiled — page count and every reported number stayed the same. We think this "run fully autonomously → have a vision-capable agent verify → fix at the source" loop is a more honest picture of current multi-agent, multi-model limitations than a "one-shot, zero-intervention" narrative would be.
 
-1. `[APPROVED]`
-   *(Confirming the AI's problem understanding; allowing data preprocessing to begin)*
+### CUMCM 2020 Problem C: Credit Strategy for Small and Micro Enterprises
 
-2. `[APPROVED]`
-   *(Confirming the preprocessing plan; allowing modeling to begin)*
+Original attachments: **~1.1 million** real invoice records, downloaded and verified from `mcm.edu.cn`, not synthetic.
 
-**After the pipeline completed (all 11 stages auto-advanced by AI):**
+- **Problem 1**: for the 123 credit-history enterprises in Attachment 1, vectorized aggregation over ~370K invoices into 39 features, then a logistic-regression default-probability model (5-fold CV AUC **0.935**, vs. 0.850 for a random-forest baseline). Predicted PD is strictly monotone across credit ratings A/B/C/D (0.057/0.088/0.149/0.711), Spearman ρ = **0.645** against the bank's expert ratings. At a ¥100M total credit budget, expected-profit-maximizing allocation lends to 14 enterprises for ¥3.52M expected profit.
+- **Problem 2**: transfers the Problem-1-calibrated scorer to the 302 credit-history-free enterprises in Attachment 2 (~730K invoices), checks distribution shift via PSI, maps pseudo-ratings from PD tiers; at ¥100M total, lends to 12 enterprises (all top-tier) for ¥3.56M expected profit.
+- **Problem 3**: KMeans-clusters the 302 enterprises by invoice-behavior features into 4 profiles (radar chart), layers on industry-heterogeneous shock coefficients modeling a COVID-style disruption, and produces an adjusted credit strategy.
+- All three sub-problems' verification passed **11/11, 13/13, 13/13**; sensitivity analysis passed **12/12**. The final paper is **30 pages (21-page body)** with 18 figures, all 2D (heatmaps, radar chart, tornado chart, sorted bar charts, etc.) — zero 3D plots, following SOP §18's rule to research the conventional visualization form for a problem type before drawing anything.
 
-3. `请增加更多的图表和可视化，并且确保可视化的中文文字都能正确显示`
-   *(Add more charts and visualizations; ensure Chinese text renders correctly)*
+Artifacts in `demo/2020C/` (the two large raw invoice attachments aren't checked in due to size; the original problem `.docx` and every derived feature/result CSV are): paper [`final_paper_2020C_credit_decision.pdf`](demo/2020C/CUMCM_Workspace/output/final_paper_2020C_credit_decision.pdf), `demo/2020C/CUMCM_Workspace/memory/thought_process.md`.
 
-4. `能否编译成pdf`
-   *(Can you compile to PDF?)*
+![2020C paper abstract page](./demo/2020C/CUMCM_Workspace/abstract_page.png)
+![2020C 123-enterprise risk-profile heatmap](./demo/2020C/CUMCM_Workspace/risk_heatmap_page.png)
 
-5. `请在论文中增加描述性的语言，增加文字长度。请美化可视化。修改后再次编译`
-   *(Add more descriptive language, increase paper length; polish visualizations; recompile)*
+### CUMCM 2025 Problem A: Smoke-Screen Decoy Deployment Strategy (NASA technical-report visualization style)
 
----
+A 3D line-of-sight-obscuration geometry problem — UAVs deploy smoke-screen decoys to shield a real target from an incoming missile, across five progressive sub-problems.
 
-The pipeline ran for approximately **1 hour 34 minutes**, completing 11 stages and passing 144 verification checks. The first two prompts were necessary approval confirmations within the pipeline; the final three were optional post-pipeline refinements added after the paper was already complete.
+- **Problem 1**: forward simulation of a given strategy, effective masking duration **1.410 s**.
+- **Problem 2**: single-bomb optimization freeing heading/speed/drop-time/fuze-delay, physics-informed multi-start + coordinate-rotation refinement, raises it to **4.611 s** (+227%).
+- **Problem 3**: single-UAV three-bomb drop-sequence optimization, union masking **7.263 s**.
+- **Problem 4**: three UAVs coordinating one bomb each, union masking **15.354 s**.
+- **Problem 5**: 5 UAVs, up to 3 bombs each, staged allocation (per-bomb optimization → greedy allocation → local refinement) against 3 incoming missiles, total masking **28.136 s**.
+- All verification passed; sensitivity analysis shows the model is robust overall to key parameters (missile speed, cloud effective radius). Paper is **28 pages (20-page body)**.
 
-For the full thought process, generated figures, and the final paper, see the [`demo/`](demo/) directory. We recommend reading `demo/CUMCM_Workspace/memory/thought_process.md` and the compiled PDF to experience the AI's complete reasoning chain.
+This case's visualizations went through three rounds: dsh's first pass wasn't good → manually fixed with `fit3d_axes` etc. to resolve 3D dead-space/label-collision issues → restyled per user request into a **NASA technical-report / orbital-mechanics chart style** (white background, dense fine grid + bold major gridlines, black/white primary lines, NASA Blue `#0B3D91`/NASA Red `#FC3D21` reserved for key annotations, fully boxed axes) — all 9 figures redrawn, with every modeling conclusion unchanged throughout.
+
+Artifacts in `demo/2025A/`: paper [`final_paper_2025A_smoke_screen.pdf`](demo/2025A/CUMCM_Workspace/output/final_paper_2025A_smoke_screen.pdf), `demo/2025A/CUMCM_Workspace/memory/thought_process.md`.
+
+![2025A paper abstract page](./demo/2025A/CUMCM_Workspace/abstract_page.png)
+![2025A NASA-style sensitivity tornado chart](./demo/2025A/CUMCM_Workspace/nasa_style_tornado_page.png)
 
 ---
 
@@ -678,6 +841,7 @@ For the full thought process, generated figures, and the final paper, see the [`
 - Python 3.10+
 - `pip install pdfplumber scipy numpy matplotlib pandas openpyxl`
 - Optional: TeX Live or MiKTeX (or use Docker)
+- **To compile the MCM/ICM template** (`templates/mcm_template.tex`): also needs the `mcmthesis` package (`tlmgr install mcmthesis`, or see the [mcmthesis project](https://github.com/latexstudio-org/mcmthesis)) — most minimal TeX Live installs don't ship it by default; the CUMCM template doesn't need this
 - Optional (AI image generation): `pip install openai>=1.0` + `OPENAI_API_KEY`, or an OpenAI Codex subscription
 
 ### Install

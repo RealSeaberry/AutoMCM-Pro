@@ -57,6 +57,73 @@ def load_iter():
     return {}
 
 
+# 附录/代码起始章节的常见标题关键词，用来在 PDF 书签里定位"正文到哪页为止"
+_APPENDIX_TITLE_KEYWORDS = ("附录", "核心代码", "appendix", "report on use of ai")
+
+
+def report_page_count(pdf_path: Path, mode: str) -> None:
+    """编译成功后报告页数，并按赛制给出正文/总页数的软性目标提醒（不是门控，
+    不会让编译失败——页数控制是写作阶段该做的事，这里只是让 Agent 看得到
+    有没有超标，超标了应该回 latex_draft 精简附录核心代码，见
+    AutoMCM_SOP.md §17.4）。CUMCM：正文（不含附录）目标 20~25 页、硬上限 30 页，
+    附录不限；MCM/ICM：正文+参考文献+附录代码合计硬上限 25 页（AI 使用报告
+    单独不计）。"""
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        print("[compile] （未安装 pypdf，跳过页数统计——不影响 PDF 本身）")
+        return
+
+    try:
+        reader = PdfReader(str(pdf_path))
+        total_pages = len(reader.pages)
+    except Exception as e:
+        print(f"[compile] （页数统计失败: {e}，不影响 PDF 本身）")
+        return
+
+    # 尝试用大纲书签定位附录起始页（hyperref 会自动把 \section 加进书签）
+    appendix_start = None
+    try:
+        def _walk(outline, depth=0):
+            nonlocal appendix_start
+            for item in outline:
+                if isinstance(item, list):
+                    _walk(item, depth + 1)
+                    continue
+                title = str(getattr(item, "title", "")).lower()
+                if any(kw in title for kw in _APPENDIX_TITLE_KEYWORDS):
+                    try:
+                        page_idx = reader.get_destination_page_number(item)
+                        if appendix_start is None or page_idx < appendix_start:
+                            appendix_start = page_idx
+                    except Exception:
+                        pass
+        _walk(reader.outline)
+    except Exception:
+        pass
+
+    body_pages = appendix_start if appendix_start is not None else total_pages
+
+    print(f"[compile] 页数统计：总计 {total_pages} 页"
+          + (f"，正文（附录前）约 {body_pages} 页" if appendix_start is not None else ""))
+
+    if mode in ("mcm", "icm"):
+        if total_pages > 25:
+            print(f"[compile] ⚠ 总页数 {total_pages} 超过 MCM/ICM 官方硬上限 25 页"
+                  f"（Report on Use of AI Tools 单独一节不计入，其余全部计入）——"
+                  f"请回 latex_draft 精简附录核心代码（只保留核心求解逻辑，"
+                  f"去掉样板 import/绘图美化代码），或删减非核心章节内容")
+        elif total_pages > 22:
+            print(f"[compile] 提示：总页数 {total_pages}，接近 25 页硬上限，建议关注")
+    else:
+        if body_pages and body_pages > 30:
+            print(f"[compile] ⚠ 正文 {body_pages} 页超过 CUMCM 官方硬上限 30 页，"
+                  f"请回 latex_draft 精简正文内容")
+        elif body_pages and body_pages > 25:
+            print(f"[compile] 提示：正文 {body_pages} 页，超出建议目标区间 20~25 页"
+                  f"（未超硬上限 30 页，不强制处理，篇幅富余时可考虑精简）")
+
+
 def main():
     parser = argparse.ArgumentParser(description="AutoMCM-Pro LaTeX 编译器")
     parser.add_argument("--mode", choices=["cumcm", "mcm", "icm"], default=None)
@@ -128,6 +195,7 @@ def main():
         out_path = OUTPUT_DIR / out_name
         shutil.copy2(src_pdf, out_path)
         print(f"[compile] ✓ 主论文 PDF → {out_path}")
+        report_page_count(out_path, mode)
     else:
         sys.exit(f"[compile] ✗ 编译失败，检查 {LATEX_DIR / MAIN_TEX}")
 

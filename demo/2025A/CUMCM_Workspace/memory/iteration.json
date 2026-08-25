@@ -1,0 +1,23 @@
+{
+  "title": "",
+  "mode": "cumcm",
+  "phase": "complete",
+  "phase_index": 6,
+  "problems": [],
+  "models": [],
+  "iterations": 0,
+  "tcn": "",
+  "problem_choice": "",
+  "contest_type": "",
+  "memo_mode": "",
+  "created_at": "2026-08-25 12:23:12",
+  "updated_at": "2026-08-25 18:40:52",
+  "completed_tasks": [],
+  "pending_tasks": [
+    "Phase 1: 破题分析与文献调研",
+    "Phase 2: 数据预处理",
+    "Phase 2: 问题建模与验证",
+    "Phase 3: LaTeX 论文撰写（中文）",
+    "Phase 5: 编译 PDF"
+  ]
+}

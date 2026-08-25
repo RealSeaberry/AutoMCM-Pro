@@ -6,6 +6,259 @@ Version scheme: [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.3.0] — 2026-08-25
+
+### Added
+
+#### Los Alamos Exploration Layer (optional, auto-triggered addon)
+- Hypothesis tree/DAG materialized view (`scripts/los_alamos/hypothesis_tree.py`),
+  event-sourced from an append-only message bus (`bus.py`); four evaluation
+  tracks: Track 0 (semantic screening), Track R "Bletchley" (red-team stress
+  test), Track 1 (entropy-weight + TOPSIS objective ranking), Track 2
+  (qualitative pairwise judge panel, Copeland ranking, Shannon-entropy
+  disagreement)
+- Six autonomous trigger criteria (`SKILL.md` path C Step 0), including a new
+  "problem-complexity initial judgment" checkable as early as
+  `problem_analysis` — no longer requires an explicit human request or
+  literature-survey-stage evidence to fire
+- New `LOS_ALAMOS_METHOD_CATALOG.md` — six-category MCM paradigm taxonomy
+  (optimization / prediction / evaluation / simulation / classification /
+  network) used by Alsos literature surveys and Director's first-layer branch
+  selection to widen candidate coverage beyond ad-hoc search
+- Elastic branch width (2 branches under time pressure, 3–4 when time budget
+  allows) and deeper branching support (same-paradigm technical-choice
+  sub-branches, `depth` + `--parent-ids`)
+- Governance rule (SOP §9.2.6): branch decisions must query
+  `hypothesis_tree.py status` before acting, not rely on narrative memory —
+  wired into `SKILL.md` at Step 5 (build/verify dispatch) and Step 9 (finals)
+- Fixed: `adjudicate.py screen`/`redteam` previously left the
+  `hypothesis_tree_{N}.json` materialized-view snapshot stale until the next
+  `hypothesis_tree.py` invocation; both now call `_sync_tree()` immediately
+
+#### RAND Delphi — Track 2 anonymous multi-round convergence
+- `adjudicate.py panel-vote --round` / `panel-entropy --round` /
+  `delphi-summary`; capped at 2 retry rounds (SOP §9.6)
+
+#### Project Skunk Works — lightweight mode
+- `pipeline_manager.py init --skunk-works`, relaxes citation gate (≥1 vs ≥2)
+  and Checkpoint report verbosity; §4 self-verification mandate is explicitly
+  **not** relaxed
+- Autonomous trigger extended (SOP §10.1): Director may self-trigger based on
+  a time-pressure signal alone (not only explicit human request), but must
+  announce the switch before executing — never silent
+
+#### Andon Cord — universal emergency stop
+- `pipeline_manager.py andon-pull/andon-clear/andon-status`; freezes `advance`
+  pipeline-wide until cleared; AP mode cannot auto-clear (one of only two
+  hard human-in-the-loop exceptions, alongside Checkpoint LA)
+
+#### NASA Mission Control Go/No-Go — `final_compile` pre-flight check
+- `quality_gate.py launch-check` (gate 8): polls Andon / stage completeness
+  (now filtered by `problem_count`, see Fixed) / image existence / placeholder
+  residue / anonymity / Los Alamos assumption-ledger integrity
+- Mandatory before `final_compile` (new absolute-prohibition item, SOP §7)
+
+#### Project Kaizen — post-verification quality-polish loop
+- `pipeline_manager.py kaizen-assess/kaizen-round-start/kaizen-status`;
+  4-dimension self-assessment (significance / robustness / assumptions /
+  completeness, threshold 4.0/5), capped at 2 rounds, gated by the same
+  objective time-budget signal as Skunk Works (opposite direction: adds
+  rigor when time allows rather than relaxing it under pressure)
+- Hard boundary vs. writing-style polish (§16): Kaizen may revise numeric
+  conclusions and model content; style passes may not
+
+#### Work Log — single-file complete session record
+- `scripts/worklog.py` — append-only, Simplified Chinese,
+  `CUMCM_Workspace/memory/worklog.md`; stage transitions / rework / Andon /
+  Kaizen / gate results auto-logged from `pipeline_manager.py` and
+  `quality_gate.py` at zero extra token cost; user messages and undocumented
+  Agent decisions logged manually via `worklog.py append`
+
+#### Citation Authenticity Verification & Shared Pool
+- `scripts/cite_check.py` — `register` (dedup by DOI/URL/title into a shared
+  `citations.bib` across sub-problems) / `verify` (DOI via CrossRef API, URL
+  via HEAD request — catches hallucinated citations, not just format-shape
+  matching) / `list` / `export-bibitems`
+- `quality_gate.py` `lit` gate now prioritizes the verified citation pool over
+  the legacy prose-regex scan; legacy path still works with a migration nudge
+- Fixed: `export-bibitems` did not escape LaTeX special characters — a real
+  DOI containing an underscore broke `xelatex` compilation with a fatal error
+
+#### Writing-Style / "AI-Generated Feel" Reduction
+- `scripts/style_check.py scan` — six objective, non-LLM checks: list-density
+  in narrative sections, stock-phrase repetition, mechanical
+  first/second/finally transition skeletons, sentence-length coefficient of
+  variation, paragraph-length CV, cross-section n-gram repetition; thresholds
+  informed by public research (mrshibly/Humanizer, Wikipedia:Signs of AI
+  Writing, Pangram) and recalibrated against real Chinese academic writing
+- SOP §16 writing protocol: plan-then-segment writing, ≤2 style-polish rounds;
+  hard boundary — style polish may only change *how* something is said, never
+  numeric conclusions (Kaizen's territory)
+- Fixed: LaTeX comment lines (`%% ==== section divider ====`) were leaking
+  into n-gram frequency analysis as false "repeated phrases"
+- Fixed: overlapping sliding-window n-gram duplicates of the same longer
+  phrase (e.g. three 6-char windows of one 8-char term) now merge into one
+  finding instead of three
+
+#### Official Format Compliance (SOP §17)
+- CUMCM: `templates/latex_template.tex` synced to the 2026 format spec —
+  electronic-version-compliant cover-page structure (title+abstract combined
+  as page 1, page numbering starts there), `\tableofcontents` removed (official
+  rule: no TOC), commented-out print-only 承诺书/编号页 block
+- New anonymity heuristic gate `quality_gate.py anon-check` (self-referential
+  / labeled-field phrase matching), wired into `launch-check`
+- New `scripts/ai_usage_doc.py`: `generate` (builds a standalone
+  《AI工具使用详情》PDF from `worklog.md` per the 2025-trial AI-tool-usage
+  regulation's four required sections), `cite-format` (CUMCM reference-line
+  formatter), `mcm-entry` (COMAP `Report on Use of AI Tools` entry formatter)
+  — none of these auto-insert into the paper; declaring AI usage is a
+  deliberate, manual decision by design
+- MCM/ICM: `templates/mcm_template.tex` gets `\setcounter{tocdepth}{2}`
+  (keeps the required TOC to ~1 page) and a commented-out
+  `Report on Use of AI Tools` placeholder section (COMAP format, appended
+  after the 25-page solution, not counted toward the limit)
+- `compile_pdf.py` now reports page counts after a successful compile
+  (PDF-bookmark-based body/appendix split) with contest-specific soft targets
+  and hard-cap warnings — CUMCM body target 20–25 pages / hard cap 30
+  (appendix unlimited); MCM/ICM hard cap 25 pages total including appendix
+  code — and recommends compacting appendix core code first when over budget
+
+#### §18 — Research domain-conventional visualization forms before drawing
+- New `AutoMCM_SOP.md` §18 ("画图前先查领域惯例"): before designing any result
+  figure, search (web-search, keywords abstracted per S3) for the
+  conventional visualization form for that problem archetype — e.g.
+  trajectory/geometry-optimization problems → 3D trajectory + key-moment
+  annotation; coverage/siting/allocation → map/scatter + Gantt-style timeline;
+  multi-objective/multi-scenario comparison → Pareto front or radar chart;
+  sensitivity analysis → tornado chart or multi-parameter curve family;
+  classification/clustering/ranking → heatmap or a re-sorted stacked bar
+  chart. Findings recorded in `thought_process.md`; falling back to
+  common-sense judgment is permitted when no clear convention is found, but
+  — same spirit as §7's "never silently skip a failed check" — that fallback
+  must also be recorded, never silently taken.
+- Wired into `.claude/skills/auto-mcm/SKILL.md`'s 图表风格规范 section (new
+  subsection preceding 标准用法) and cross-referenced across all three lean
+  runtime bindings (`.opencode/`, `.dsh/`, `.agents/`).
+- Codex binding's existing "known capability gap: no native web search"
+  section extended to explicitly cover this new requirement too — the same
+  underlying gap (no `WebSearch`/`WebFetch` tool) blocks the domain-convention
+  research step, not just literature review; the existing "disclose at
+  Checkpoint① rather than silently skip" guidance now applies to both.
+
+#### Two new fully-autonomous demo cases (replacing the previous single showcase)
+- `demo/2020C/` — real 2020 CUMCM Problem C (*Credit Strategy for Small and
+  Micro Enterprises*), official attachments (~1.1M invoice rows) downloaded
+  and verified from `mcm.edu.cn`. Full dsh headless run (zero human
+  checkpoints) through all three sub-problems + sensitivity analysis:
+  logistic-regression default-probability model (5-fold CV AUC 0.935),
+  entropy-weight/TOPSIS cross-validation track, PSI transfer-stability check,
+  KMeans industry-behavior clustering, expected-profit-maximizing credit
+  allocation. 30 pages (21-page body), 18 figures, all 2D, zero 3D plots.
+- `demo/2025A/` — 2025 CUMCM Problem A (smoke-screen decoy deployment),
+  restyled end-to-end into a **NASA technical-report / orbital-mechanics
+  chart theme** (white background, dense fine grid + bold major gridlines,
+  black/white primary lines, NASA Blue `#0B3D91` / NASA Red `#FC3D21`
+  reserved for key-annotation accents only, fully boxed axes) — implemented
+  as a workspace-local override of `scripts/plot_style.py`'s palette/rcParams/
+  `save()` grid post-processing, not a change to the repository's shared
+  style module. 28 pages (20-page body), same modeling conclusions as before
+  restyling.
+- `demo/mind_reader_ui.png` — the Mind-Reader tool screenshot (previously
+  nested inside the single demo's `CUMCM_Workspace/`) relocated to a
+  case-independent top-level path, since it illustrates the tool, not either
+  specific paper.
+
+### Runtime Bindings
+- New: DeepSeek Harness (`dsh`) binding — `.dsh/skills/auto-mcm/SKILL.md`
+- New: opencode binding — `.opencode/skills/auto-mcm/SKILL.md`
+- New: Codex CLI binding — `.agents/skills/auto-mcm/SKILL.md`
+- All three verified via real executed tasks (not documentation inference),
+  cross-checked through structured runtime session logs (`opencode export`,
+  decompressed `.zstd` dsh session logs, plain-`.jsonl` Codex rollouts)
+
+### Fixed
+- **`templates/latex_template.tex` and `templates/mcm_template.tex` both
+  failed to compile out of the box** — both loaded `\usepackage{natbib}`
+  while their bibliography section used plain `\bibitem`/`\cite` (not
+  natbib's `\citep`/`\citet`), which is a fatal incompatibility
+  (`Package natbib Error: Bibliography not compatible with author-year
+  citations`). Neither template body actually uses any natbib-specific
+  command, so natbib was unnecessary; removed from both. Verified with a
+  from-scratch standalone `xelatex` compile of each template (CUMCM: exit 0,
+  6 pages, zero errors once a placeholder figure exists; MCM/ICM: confirmed
+  the natbib error is gone, remaining failure is the separate, already-
+  documented `mcmthesis.cls` external-package requirement). This bug predates
+  this release — every fresh template compile would have hit it — and had
+  only ever been patched ad hoc inside individual generated papers'
+  `main.tex`, never at the template source; this is the first fix at the
+  actual source. README prerequisites also updated to document the
+  `mcmthesis` package requirement for the MCM/ICM template specifically
+  (most minimal TeX Live installs don't ship it; CUMCM doesn't need it).
+- `plot_style.py`: correlation-matrix heatmap used a one-directional
+  sequential colormap for signed (−1…1) data instead of `diverging_cmap()` —
+  negative and positive correlation were nearly indistinguishable at a
+  glance; fixed.
+- Two instances of a "single-x-tick stacked bar chart degenerates into a
+  solid-color rectangle with no visible structure" bug, both triggered when
+  an expected-profit-maximizing credit allocation concentrated almost
+  entirely into one rating tier (2020C demo, `problem1_credit.py` and
+  `problem2_credit.py`) — replaced with per-enterprise sorted horizontal bar
+  charts (amount + PD annotated per bar), which is both correct rendering
+  and more informative than the aggregate single bar it replaced.
+- LaTeX verification-summary table (2025A demo `main.tex`) overflowed the
+  page's right margin by ~415pt (~5.7in) — a plain `lcl` tabular with long
+  cell text and no wrap points; fixed with `array` package `p{}`-width
+  wrapped columns, plus `\allowbreak` inserted after underscores in
+  monospace filenames (which otherwise have no natural line-break point and
+  still overflow their column even when wrapping is enabled).
+- 3D scene-overview and trajectory figures (2025A demo) had large dead
+  whitespace bands where `set_box_aspect`'d axes were never tightened to
+  their actual rendered content — added `plot_style.fit3d_axes()` (two-pass
+  render + `get_tightbbox()`-based repositioning) and wired it into the
+  affected `00_data_eda.py`/`problem1_geometry.py` figure functions; also
+  replaced two 3D-space text labels that sat close together in this
+  scenario's real geometry (and so collided under certain view angles) with
+  projection-immune screen-space `text2D` anchors.
+- Documented, and deliberately reverted rather than shipped: a third 3D
+  inset panel + taller figure canvas intermittently caused
+  `bbox_inches='tight'`'s save-time crop to drop unrelated existing labels
+  from a sibling subplot on the same figure — reproduced twice independently
+  (including after reducing label offsets), suspected to be an mplot3d
+  `Text3D` bounding-box quirk rather than a usage error in this codebase;
+  reverted to the previously-verified two-panel layout instead of risking a
+  silent regression for a marginal enhancement.
+- `gate_launch_check()` stage-completeness check now filters by
+  `problem_count` — previously always scanned `model_1`–`model_3` regardless
+  of actual sub-problem count, producing a false permanent NO-GO for any
+  1- or 2-problem contest
+- Hardcoded `/tmp/` absolute paths in `quality_gate.py` example commands
+  replaced with in-workspace paths — broke under sandboxed runtimes'
+  `external_directory` permission checks
+
+### Testing
+- Every bug above (degenerate allocation charts, dead 3D whitespace, table
+  overflow, wrong colormap) was found by direct human/Claude visual
+  inspection of the rendered PDF pages — none were caught by the dsh agent's
+  own completion report, and none could have been: the model dsh was running
+  (`deepseek-v4-flash`) has no image-input support, so its claimed "visual
+  self-review" was necessarily only ever a file/pixel-level programmatic
+  check, disclosed honestly in `worklog.md` rather than misrepresented.
+- Multiple full real-agent pipeline runs (dsh, opencode) exercising the
+  complete new addon set together, independently re-verified rather than
+  trusting agent self-reports (PDF validity/page counts, `launch-check`
+  re-run, `cite_check verify` re-run, session-log decompression for
+  tool-call audit)
+- Los Alamos genuinely self-triggered via multiple distinct criteria across
+  runs (explicit "compare methods" problem wording, autonomous
+  complexity judgment with no such wording); one run surfaced two genuine
+  Checkpoint LA two-track conflicts (one directional contradiction, one
+  Condorcet cycle) — resolved with fully documented headless-degradation
+  reasoning; flagged as a known test-methodology limitation that Checkpoint
+  LA's true human-wait path remains unverified in a genuinely interactive
+  session
+
+---
+
 ## [0.2.0] — 2026-05-03
 
 ### Added

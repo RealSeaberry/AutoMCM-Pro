@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# LaTeX 中间产物（保留 .tex 和 .pdf）
+*.aux
+*.log
+*.toc
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.blg
+*.bbl
+*.bcf
+*.run.xml
+*.lot
+*.lof
+*.idx
+*.ilg
+*.ind
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# 字体缓存（matplotlib 等）
+.mplconfig/
+
+# 密钥与凭证（绝不入库）
+.env
+.env.*
+*.key
+*.pem
+*.p12
+credentials.*
+secrets.*
+*_secret*
+*_token*
+config.local.*
