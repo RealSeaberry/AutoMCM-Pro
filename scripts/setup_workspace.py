@@ -45,7 +45,7 @@ PENDING_MCM = [
 ]
 
 
-def setup(mode: str = "cumcm"):
+def setup(mode: str = "cumcm", lean_policy: str = "off"):
     is_mcm = mode.lower() == "mcm"
     label  = "MCM/ICM-Master" if is_mcm else "CUMCM-Master"
 
@@ -58,6 +58,14 @@ def setup(mode: str = "cumcm"):
     for d in DIRS:
         d.mkdir(parents=True, exist_ok=True)
         print(f"  [创建] {d}")
+
+    if lean_policy != "off":
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from leangate.core import initialize
+        addon = Path(__file__).resolve().parent.parent / "addons" / "leangate"
+        initialize(ROOT, addon, lean_policy)
+        print(f"  [创建] {ROOT / 'formal'}（LeanGate: {lean_policy}）")
 
     # ── iteration.json ──────────────────────────────────────────────────
     iteration_file = ROOT / "memory" / "iteration.json"
@@ -141,5 +149,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["cumcm", "mcm"], default="cumcm",
                         help="竞赛模式: cumcm (国赛) 或 mcm (美赛)")
+    parser.add_argument("--lean-policy", choices=["off", "selected", "required"],
+                        default="off", dest="lean_policy",
+                        help="LeanGate 策略（默认 off，不改变现有流程）")
     args = parser.parse_args()
-    setup(mode=args.mode)
+    setup(mode=args.mode, lean_policy=args.lean_policy)

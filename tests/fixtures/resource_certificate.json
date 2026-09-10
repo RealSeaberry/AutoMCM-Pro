@@ -1,0 +1,7 @@
+{
+  "capacities": [40, 35, 25],
+  "allocations": [40, 30, 20],
+  "profits": [5, 3, 2],
+  "budget": 100,
+  "scaling_policy": "exact integer units"
+}

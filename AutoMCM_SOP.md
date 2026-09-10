@@ -14,6 +14,14 @@
 - 因此，任何重大输出必须经过人类检查点（Checkpoint）才能流入论文。
 - **"快"永远服从"对"。** 跳过验证门禁是绝对禁止的行为。
 
+### 0.1 Skill 触发时的依赖同意
+
+每个新的智能体会话首次触发 AutoMCM-Pro 时，必须先询问使用者是否安装核心 Python
+建模依赖，以及是否准备可选的 LeanGate / Lean 4。本步骤不进行环境扫描，不静默
+安装，不把沉默视为同意。获得明确同意后才可调用安装器；拒绝后同一会话不重复询问。
+headless 环境无法等待回答时必须显示问题并暂停。后续只有实际命令因依赖缺失而失败
+时才报告缺失项，不得擅自安装。
+
 ---
 
 ## 1. 模式声明协议 (Mode Declaration)
@@ -110,7 +118,7 @@ python scripts/pipeline_manager.py request-review \
 在 `state/human_intervention.md` 中追加 AI 自评：
 
 ```
-[APPROVED]
+[APPROVED:<stage_name>:<round>]
 AI 自评（<stage_name>）：
 - 本阶段完成情况：<一句话总结>
 - 关键数值检查：<列举 2-3 个代表性结果>
@@ -139,8 +147,8 @@ python scripts/pipeline_manager.py advance <stage_name>
 ║  请操作:                                                 ║
 ║  1. 阅读 review_request.md                               ║
 ║  2. 在 human_intervention.md 中填写意见                   ║
-║     • 同意继续 → 写入 [APPROVED]                          ║
-║     • 需要修改 → 写入 [REWORK] + 具体指令                  ║
+║     • 同意 → 写入 review_request 中的阶段/轮次批准标记     ║
+║     • 修改 → 写入对应阶段/轮次返工标记 + 具体指令          ║
 ║  3. 在终端输入「继续」后按 Enter                           ║
 ╚══════════════════════════════════════════════════════════╝
 ```
@@ -155,11 +163,11 @@ python scripts/pipeline_manager.py advance <stage_name>
 python scripts/pipeline_manager.py check-approval --stage <stage_name>
 ```
 
-**若返回 `[APPROVED]`：**
+**若返回 `APPROVED`：**
 - 执行 `pipeline_manager.py advance <stage_name>`
 - 继续下一阶段
 
-**若返回 `[REWORK]`：**
+**若返回 `REWORK`：**
 - 读取 `human_intervention.md` 中的具体修改意见
 - **只针对被批评的部分**重新执行，其余已批准的内容不得触碰
 - 重新执行完毕后再次发起 Review
@@ -342,7 +350,7 @@ print(f"OVERALL: {'ALL PASS' if all_pass else 'FAILED — SEE ABOVE'}")
 
 ## 7. 绝对禁止清单
 
-1. **禁止在 MANUAL 模式下跳过 Checkpoint**：MANUAL 模式必须等待人类 `[APPROVED]` 后方可推进；AP 模式由 AI 自评自批后自动推进
+1. **禁止在 MANUAL 模式下跳过 Checkpoint**：MANUAL 模式必须等待人类写入 `[APPROVED:<stage>:<round>]` 后方可推进；AP 模式由 `request-review` 记录绑定阶段与轮次的 AI 自评后自动推进
 2. **禁止将未验证的数据写入论文**：`verify_*` 脚本必须全通过才能引用该模型结果
 3. **禁止在 Manual 模式下发散**：见第6节
 4. **禁止覆写已 `approved` 的内容**：除非 Rework 指令明确指向该内容
@@ -990,3 +998,58 @@ MCM 模板的改动只做了结构性调整（`tocdepth`、页数提醒、注释
 按常识选用 XX 图"，不得跳过这条记录、也不得因为查不到就随便应付一张图。
 这跟第 7 节"禁止静默跳过验证失败"是同一条精神在可视化环节的体现：可以承认
 "没查到标准做法"，不能对这件事保持沉默。
+
+---
+
+## 19. LeanGate（可选 Lean 形式化验证）
+
+LeanGate 默认关闭。初始化流水线时用 `--lean-policy selected|required` 启用：
+
+```bash
+python scripts/pipeline_manager.py init --mode AP --contest CUMCM --lean-policy selected
+python scripts/leangate.py doctor
+```
+
+启用后，`problem_analysis` 结束前必须完成逐问题形式化适用性分类并执行
+`leangate.py seal-assessment`。每个问题至少有一个 `ELIGIBLE` claim，或一个带明确
+理由的 `NOT_APPLICABLE` 记录；`DEFERRED` 不能作为最终分类。注册 claim 时，若属于
+`integer_feasibility`、`resource_conservation`、`safety_bound`、`graph_property`、
+`dynamic_programming`、`algorithm_invariant`、`uniqueness_monotonicity_convergence`、
+`solver_certificate`、`decision_critical` 或 `cross_problem_dependency`，必须用
+`--risk-category` 标注并提供 `--classification-reason`。这些 claim 自动成为 mandatory。
+分类封存后不得静默新增、删除、降级或改成不适用；需要改变时必须回到问题分析返工。
+
+```bash
+python scripts/leangate.py --workspace CUMCM_Workspace register ... \
+  --risk-category safety_bound --classification-reason "决定最终方案可行性"
+python scripts/leangate.py --workspace CUMCM_Workspace seal-assessment
+python scripts/quality_gate.py formal-assessment
+```
+
+`selected` 表示只门控已登记的适用 claim；没有适用 claim 时返回 NOT_APPLICABLE。
+`required` 表示每个进入 `model_N_verify` 的问题都必须有适用 claim 且通过。Agent 不得
+为了放行把适用 claim 改成 `NOT_APPLICABLE`，也不得把 Lean 不可用解释为 PASS。
+
+标准顺序是：生成/编写精确规格与证明 → `register` → `semantic-review` → `freeze` →
+`verify` → `quality_gate.py formal`。证书型资源分配案例可先执行
+`generate-resource`，它只接受精确 JSON 整数，并把证书摘要嵌入 Lean 源文件。
+人类语义批准文件必须包含 `[APPROVED LeanGate <claim-id>]`；将义务纳入 `required` 基线还需
+包含 `[REQUIRED LeanGate <claim-id>]` 并执行 `leangate.py require`。这两个标记不能由
+任务 Agent 自行代写。
+
+任何规格、证明或证书变化都会使旧结果 `STALE`。Python 验证与 Lean 验证是合取关系；
+任何一方失败都不得写成“形式化证明通过”。`FORMALLY_PROVED` 只来自固定快照上的 Lean
+内核检查及公理/占位符审计，不来自 Agent 自评、OpenCode/DSH 复核意见或 PASS 文本。
+
+论文只可在 claim scope 与假设范围内引用结论；`launch-check` 会重新消费当前 manifest、
+摘要和机器报告。形式化不能替代数据质量、统计检验、现实合理性和价值判断。详细信任
+边界、状态模型及哲学定位见 `LEAN_GATE_DESIGN.md`。
+
+LeanGate 启用后，推进 `model_N_verify` 必须让流水线实际执行独立 Python 验证脚本：
+
+```bash
+python scripts/pipeline_manager.py advance model_1_verify \
+  --verify-script CUMCM_Workspace/src/verifications/verify_problem1.py
+```
+
+随后流水线会再次运行正式 Lean gate；不能传入工作区外脚本、符号链接或预先伪造的报告。

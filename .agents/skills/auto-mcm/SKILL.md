@@ -19,6 +19,14 @@ description: >
 不应该在几份文件间产生分歧**。完整背景见
 [`CODEX_INTEGRATION.md`](../../../CODEX_INTEGRATION.md)。
 
+## 【触发时的依赖安装询问】
+
+每个新的 Codex 会话首次触发本 Skill 时，先询问用户是否安装核心 Python 建模依赖
+（pdfplumber、scipy、numpy、matplotlib、pandas、openpyxl），以及是否准备可选的
+LeanGate / Lean 4。不得预扫描或静默安装；用户同意后才调用
+`bash install.sh --with-python-deps` 和/或 `--with-lean`。拒绝后同一会话不重复询问。
+非交互执行无法取得回答时，显示问题并暂停，不得把沉默当作同意。
+
 ---
 
 ## 【与其他 runtime 最大的差异：Codex 只给模型一个"代码模式"工具，实测确认】
@@ -127,3 +135,28 @@ mcm-entry`、`compile_pdf.py` 编译后页数提醒，AutoMCM_SOP.md §17）、�
 `AutoMCM_SOP.md` 的 S1~S5 原样适用。S3（外部服务调用告知）在 Codex 上尤其重要——
 既然网络检索要靠用户自配的 MCP server，调用前更要做好关键词抽象化，不要把题目
 原文整段发给一个你不确定信任边界的外部 MCP server。
+
+---
+
+## 【LeanGate：可选 Lean 形式化验证门禁】
+
+LeanGate 默认关闭；行为规范见 `AutoMCM_SOP.md §19`。Codex 通过 `exec` 内的
+`tools.exec_command` 调用共享命令：
+
+```bash
+python scripts/leangate.py doctor
+python scripts/leangate.py --workspace CUMCM_Workspace init --policy selected
+python scripts/leangate.py --workspace CUMCM_Workspace status --problem-n 1
+python scripts/leangate.py --workspace CUMCM_Workspace verify --problem-n 1
+python scripts/quality_gate.py formal --problem-n 1
+```
+
+LeanGate 启用后，离开 `problem_analysis` 前必须逐问题登记适用性并执行
+`leangate.py seal-assessment`；安全边界、整数可行性、守恒、不变量、递推、收敛、
+求解器证书或决策关键结论必须用 `--risk-category` 标注，自动成为 mandatory。
+
+不得直接编辑 `claims.json` 或报告来制造 PASS。任何输入变化后重新执行语义审查、冻结
+与验证；Lean FAIL、UNKNOWN、STALE 或 Python FAIL 都是 NO-GO。
+LeanGate 启用后的 `model_N_verify` 推进必须传入工作区内真实验证脚本：
+`pipeline_manager.py advance model_N_verify --verify-script CUMCM_Workspace/src/verifications/verify_*.py`。
+`required` claim 还必须使用人类文件中的 `[APPROVED LeanGate ...]` 与 `[REQUIRED LeanGate ...]` 标记。

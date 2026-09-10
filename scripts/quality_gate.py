@@ -25,11 +25,14 @@ quality_gate.py — 建模质量门控脚本
 import argparse
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import worklog  # noqa: E402
+from leangate.core import (LeanGateError, audit_claim, axiom_audit_ok, formal_dir, read_manifest,
+                      refresh_freshness, run_axiom_audit, run_lean, safe_path, sha256)
 
 WORKSPACE      = Path("CUMCM_Workspace")
 THOUGHT_FILE   = WORKSPACE / "memory" / "thought_process.md"
@@ -381,6 +384,42 @@ def gate_launch_check() -> tuple[bool, str]:
         if problem_ns:
             polls.append(("假设 Ledger（Los Alamos）", ledger_all_ok, "\n    ".join(ledger_msgs)))
 
+    # 分系统 6：LeanGate。消费 manifest/report，并独立重跑固定证明以拒绝伪造报告。
+    qcode, qmsg = gate_formal(None)
+    if qcode != 2:
+        polls.append(("LeanGate", qcode == 0, qmsg))
+
+    # 分系统 7：论文中的 claim ID 必须存在于当前 LeanGate manifest。
+    cited_claims: set[str] = set()
+    for tf in tex_files:
+        cited_claims.update(re.findall(r"LG-P[1-9][0-9]*-[A-Z0-9]+(?:-[A-Z0-9]+)*",
+                                       tf.read_text(encoding="utf-8", errors="replace")))
+    if cited_claims:
+        manifest = formal_dir(WORKSPACE) / "claims.json"
+        if not manifest.is_file():
+            polls.append(("LeanGate 论文追踪", False, "论文引用了 LeanGate claim，但 claims.json 不存在"))
+        else:
+            try:
+                manifest_data = read_manifest(WORKSPACE)
+                claim_map = {c["claim_id"]: c for c in manifest_data["claims"]}
+                invalid = []
+                for cid in sorted(cited_claims):
+                    claim = claim_map.get(cid)
+                    if not claim:
+                        invalid.append(f"{cid}: missing")
+                        continue
+                    freshness = refresh_freshness(formal_dir(WORKSPACE), claim)
+                    if (claim["applicability"] != "ELIGIBLE" or
+                            claim["proof"] != "PROVED" or freshness != "FRESH"):
+                        invalid.append(
+                            f"{cid}: applicability={claim['applicability']} "
+                            f"proof={claim['proof']} freshness={freshness}")
+                polls.append(("LeanGate 论文追踪", not invalid,
+                              "无效论文 claim 引用: " + "; ".join(invalid) if invalid else
+                              f"{len(cited_claims)} 个论文 claim 引用均已证明且新鲜"))
+            except LeanGateError as exc:
+                polls.append(("LeanGate 论文追踪", False, f"manifest 无效: {exc}"))
+
     if not polls:
         return False, "未找到 pipeline.json 或工作区为空，无法执行发射前检查"
 
@@ -512,6 +551,170 @@ def gate_red_team(problem_n: int, node_id: str) -> tuple[bool, str]:
     return True, f"节点 {node_id} 红队裁定为 {verdict}，可进入决赛圈 ✓"
 
 
+def gate_formal(problem_n: int | None) -> tuple[int, str]:
+    """Consume LeanGate evidence. Return 0 pass, 1 fail, 2 not applicable."""
+    root = formal_dir(WORKSPACE)
+    if not (root / "claims.json").exists():
+        pipeline = WORKSPACE / "state" / "pipeline.json"
+        if pipeline.is_file():
+            try:
+                qstate = json.loads(pipeline.read_text(encoding="utf-8")).get("lean_formal", {})
+                if qstate.get("enabled"):
+                    return 1, "pipeline 已启用 LeanGate，但 claims.json 缺失"
+            except json.JSONDecodeError:
+                return 1, "pipeline.json 无效，无法确认 LeanGate policy"
+        return 2, "LeanGate 未启用"
+    try:
+        data = read_manifest(WORKSPACE)
+    except LeanGateError as exc:
+        return 1, f"claims manifest 无效: {exc}"
+    policy = data["policy"]
+    assessment_code, assessment_msg = gate_formal_assessment(data)
+    if assessment_code != 0:
+        return 1, assessment_msg
+    pipeline_file = WORKSPACE / "state" / "pipeline.json"
+    if pipeline_file.is_file():
+        try:
+            qstate = json.loads(pipeline_file.read_text(encoding="utf-8")).get("lean_formal")
+        except json.JSONDecodeError:
+            return 1, "pipeline.json 无效"
+        if qstate is None:
+            return 1, "pipeline 缺少 lean_formal 状态，无法验证 LeanGate policy/baseline"
+        if qstate is not None:
+            if qstate.get("enabled") != (policy != "off") or qstate.get("policy") != policy:
+                return 1, "pipeline 与 claims manifest 的 LeanGate policy 不一致"
+            manifest_ids = sorted(o["claim_id"] for o in data["obligations"])
+            required_ids = sorted(o["claim_id"] for o in data["obligations"] if o.get("required"))
+            baseline = sorted(
+                ({key: o[key] for key in ("claim_id", "problem_n", "applicability", "required")}
+                 for o in data["obligations"]), key=lambda item: item["claim_id"])
+            if qstate.get("obligation_ids", []) != manifest_ids:
+                return 1, "pipeline obligation baseline 与 manifest 不一致"
+            if qstate.get("required_claim_ids", []) != required_ids:
+                return 1, "pipeline required baseline 与 manifest 不一致"
+            if qstate.get("obligation_baseline", []) != baseline:
+                return 1, "pipeline obligation scope baseline 与 manifest 不一致"
+    if policy == "off":
+        return 2, "LeanGate policy=off"
+    obligations = [o for o in data["obligations"]
+                   if (problem_n is None or o["problem_n"] == problem_n)
+                   and o["applicability"] == "ELIGIBLE"]
+    if policy == "required":
+        required = [o for o in obligations if o.get("required")]
+        if problem_n is not None:
+            expected_problems = [problem_n]
+        else:
+            pipeline_file = WORKSPACE / "state" / "pipeline.json"
+            try:
+                count = int(json.loads(pipeline_file.read_text(encoding="utf-8")).get("problem_count", 1))
+            except (FileNotFoundError, json.JSONDecodeError, ValueError):
+                return 1, "required policy 无法读取 problem_count"
+            expected_problems = list(range(1, count + 1))
+        uncovered = [n for n in expected_problems if not any(o["problem_n"] == n for o in required)]
+        if uncovered:
+            return 1, f"required policy 缺少预先批准义务的问题: {uncovered}"
+        obligations = required
+    if not obligations:
+        if policy == "required":
+            return 1, "required policy 没有预先批准的义务"
+        return 2, "selected policy 下没有适用 claim"
+    claim_map = {c["claim_id"]: c for c in data["claims"]}
+    missing = [o["claim_id"] for o in obligations if o["claim_id"] not in claim_map]
+    if missing:
+        return 1, f"义务登记仍存在但 claim 已缺失: {missing}"
+    claims = [claim_map[o["claim_id"]] for o in obligations]
+    failures = []
+
+    def approval_ok(evidence, marker: str) -> bool:
+        if not isinstance(evidence, dict) or evidence.get("marker") != marker:
+            return False
+        try:
+            path = safe_path(WORKSPACE, evidence.get("file", ""), require_exists=True)
+        except LeanGateError:
+            return False
+        return (sha256(path) == evidence.get("sha256") and
+                marker in path.read_text(encoding="utf-8", errors="replace"))
+
+    for claim in claims:
+        freshness = refresh_freshness(root, claim)
+        report_file = root / "reports" / f"{claim['claim_id']}.json"
+        report_ok = False
+        if report_file.is_file():
+            try:
+                report = json.loads(report_file.read_text(encoding="utf-8"))
+                report_ok = (report.get("claim_id") == claim["claim_id"] and
+                             report.get("result") == "FORMALLY_PROVED" and
+                             report.get("freshness") == "FRESH" and
+                             report.get("snapshot") == claim.get("frozen_hashes"))
+            except json.JSONDecodeError:
+                pass
+        semantic_ok = claim["semantic_review"] in {"AUTO_AUDITED", "HUMAN_AUDITED"}
+        if policy == "required":
+            semantic_ok = (claim["semantic_review"] == "HUMAN_AUDITED" and
+                           approval_ok(claim.get("semantic_approval"),
+                                       f"[APPROVED LeanGate {claim['claim_id']}]") and
+                           approval_ok(claim.get("required_approval"),
+                                       f"[REQUIRED LeanGate {claim['claim_id']}]") )
+        independent_ok = False
+        independent_error = "not run"
+        if freshness == "FRESH" and semantic_ok and not audit_claim(root, claim):
+            try:
+                lean = run_lean(root, claim["spec_file"], claim["proof_file"], 300)
+                theorem_name = claim["theorem_name"]
+                if "." not in theorem_name and claim["proof_file"].startswith("Proofs/Problem"):
+                    theorem_name = f"LeanGate.Generated.P{claim['problem_n']}.{theorem_name}"
+                axioms = run_axiom_audit(root, claim["proof_file"], theorem_name, 300)
+                axiom_ok, _ = axiom_audit_ok(axioms.stdout + axioms.stderr)
+                independent_ok = lean.returncode == 0 and axioms.returncode == 0 and axiom_ok
+                independent_error = (lean.stderr or lean.stdout or axioms.stderr or axioms.stdout)[-1000:]
+            except (LeanGateError, subprocess.TimeoutExpired) as exc:
+                independent_error = str(exc)
+        if not (claim["proof"] == "PROVED" and freshness == "FRESH" and semantic_ok and
+                claim["assurance"] in {"KERNEL_PROOF", "EXTERNAL_RECHECKED"} and report_ok):
+            failures.append(f"{claim['claim_id']} proof={claim['proof']} freshness={freshness} semantic={claim['semantic_review']} report={'PASS' if report_ok else 'FAIL'}")
+        elif not independent_ok:
+            failures.append(f"{claim['claim_id']} independent Lean recheck failed: {independent_error}")
+    if failures:
+        return 1, "形式化声明未通过:\n    " + "\n    ".join(failures)
+    return 0, f"{len(claims)} 个 claim 的内核证明、新鲜度和报告均通过"
+
+
+def gate_formal_assessment(data: dict | None = None) -> tuple[int, str]:
+    """Require and preserve a per-problem formal-applicability decision."""
+    pipeline_file = WORKSPACE / "state" / "pipeline.json"
+    if not pipeline_file.is_file() and data is not None:
+        return 0, "standalone LeanGate workspace（无 pipeline 强制分类阶段）"
+    try:
+        state = json.loads(pipeline_file.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return 1, "无法读取 pipeline.json 的形式化适用性状态"
+    qstate = state.get("lean_formal", {})
+    if not qstate.get("enabled"):
+        return 2, "LeanGate 未启用"
+    if data is None:
+        try:
+            data = read_manifest(WORKSPACE)
+        except LeanGateError as exc:
+            return 1, f"claims manifest 无效: {exc}"
+    if not qstate.get("assessment_sealed"):
+        return 1, "形式化适用性清单尚未 seal-assessment"
+    current = sorted(({
+        "claim_id": o["claim_id"], "problem_n": o["problem_n"],
+        "applicability": o["applicability"], "mandatory": o.get("mandatory", False),
+        "risk_categories": sorted(o.get("risk_categories", [])),
+    } for o in data["obligations"]), key=lambda item: item["claim_id"])
+    if qstate.get("assessment_baseline") != current:
+        return 1, "形式化适用性清单在封存后被修改"
+    count = int(state.get("problem_count", 1))
+    uncovered = [n for n in range(1, count + 1) if not any(
+        o["problem_n"] == n and o["applicability"] != "DEFERRED"
+        for o in data["obligations"])]
+    if uncovered:
+        return 1, f"缺少最终形式化适用性结论的问题: {uncovered}"
+    mandatory = [o["claim_id"] for o in data["obligations"] if o.get("mandatory")]
+    return 0, f"适用性清单已封存；mandatory claims={mandatory or 'none'}"
+
+
 # ── 综合入口 ─────────────────────────────────────────────────────────────────
 
 def run_gate(name: str, args) -> bool:
@@ -534,6 +737,12 @@ def run_gate(name: str, args) -> bool:
         passed, msg = gate_launch_check()
     elif name == "anon-check":
         passed, msg = gate_anon_check()
+    elif name == "formal":
+        code, msg = gate_formal(args.problem_n)
+        passed = code == 0
+    elif name == "formal-assessment":
+        code, msg = gate_formal_assessment()
+        passed = code == 0
     else:
         return True
 
@@ -589,6 +798,9 @@ def main():
     # launch-check（门控 8，NASA Mission Control 式 Go/No-Go，final_compile 前用）
     sub.add_parser("launch-check", help="发射前总检查（门控 8）：Andon/阶段完整性/图片/占位符/匿名性/ledger")
     sub.add_parser("anon-check", help="匿名性启发式检查（门控 8a，国赛格式规范第六条）")
+    pf = sub.add_parser("formal", help="LeanGate 形式化证据门禁")
+    pf.add_argument("--problem-n", type=int, required=True, dest="problem_n")
+    sub.add_parser("formal-assessment", help="LeanGate 形式化适用性分类门禁")
 
     # all（一次运行所有适用门控）
     pa = sub.add_parser("all", help="运行所有适用门控")
@@ -601,6 +813,14 @@ def main():
     pa.add_argument("--problems",    type=int, default=1)
 
     args = p.parse_args()
+
+    if args.gate in {"formal", "formal-assessment"}:
+        code, msg = (gate_formal(args.problem_n) if args.gate == "formal"
+                     else gate_formal_assessment())
+        prefix = "✓ GATE" if code == 0 else ("— GATE" if code == 2 else "✗ GATE")
+        print(f"{prefix} [{args.gate}] {msg}")
+        worklog.log("门控", f"{'PASS' if code == 0 else 'SKIP' if code == 2 else 'FAIL'} [{args.gate}] {msg.splitlines()[0]}")
+        sys.exit(code)
 
     if args.gate in ("verify", "sanity", "lit", "consist", "message", "ledger", "red-team",
                      "launch-check", "anon-check"):
@@ -619,6 +839,11 @@ def main():
             results.append(run_gate("lit", args))
         if args.problems > 1 and "_verify" in stage:
             results.append(run_gate("consist", args))
+        if "_verify" in stage and args.problem_n > 0:
+            qcode, qmsg = gate_formal(args.problem_n)
+            if qcode != 2:
+                print(f"{'✓ GATE' if qcode == 0 else '✗ GATE'} [formal] {qmsg}")
+                results.append(qcode == 0)
 
         if not results:
             print("[quality_gate] 当前阶段无适用门控，跳过。")

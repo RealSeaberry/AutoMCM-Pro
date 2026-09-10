@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/RealSeaberry/AutoMCM-Pro/leangate/claims.schema.json",
+  "title": "LeanGate Claim Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "policy", "obligations", "claims"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "policy": {"enum": ["off", "selected", "required"]},
+    "obligations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim_id", "problem_n", "applicability", "required"],
+        "allOf": [{"if": {"properties": {"applicability": {"not": {"const": "ELIGIBLE"}}}}, "then": {"required": ["exclusion_reason"], "properties": {"exclusion_reason": {"pattern": "\\S"}}}}],
+        "properties": {
+          "claim_id": {"type": "string", "pattern": "^LG-P[1-9][0-9]*-[A-Z0-9]+(?:-[A-Z0-9]+)*$"},
+          "problem_n": {"type": "integer", "minimum": 1},
+          "applicability": {"enum": ["ELIGIBLE", "NOT_APPLICABLE", "DEFERRED"]},
+          "exclusion_reason": {"type": "string"},
+          "required": {"type": "boolean"},
+          "registered_at": {"type": "string"},
+          "required_at": {"type": "string"},
+          "approval_note": {"type": "string"},
+          "required_approval": {"$ref": "#/$defs/approvalEvidence"},
+          "mandatory": {"type": "boolean"},
+          "risk_categories": {"type": "array", "uniqueItems": true, "items": {"enum": ["integer_feasibility", "resource_conservation", "safety_bound", "graph_property", "dynamic_programming", "algorithm_invariant", "uniqueness_monotonicity_convergence", "solver_certificate", "decision_critical", "cross_problem_dependency"]}},
+          "classification_reason": {"type": "string"}
+        }
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "allOf": [{
+          "if": {"properties": {"epistemic_type": {"const": "certificate"}}, "required": ["epistemic_type"]},
+          "then": {"properties": {"certificate_file": {"$ref": "#/$defs/jsonPath"}}}
+        }],
+        "required": ["claim_id", "problem_n", "title", "epistemic_type", "formal_level", "lifecycle", "proof", "semantic_review", "freshness", "assurance", "applicability", "error_reason", "spec_file", "proof_file", "theorem_name", "assumption_ids", "empirical_dependencies", "certificate_file", "scope_note", "frozen_hashes", "last_verified_at", "verification_snapshot", "semantic_approval", "required_approval"],
+        "properties": {
+          "claim_id": {"type": "string", "pattern": "^LG-P[1-9][0-9]*-[A-Z0-9]+(?:-[A-Z0-9]+)*$"},
+          "problem_n": {"type": "integer", "minimum": 1},
+          "title": {"type": "string", "minLength": 1},
+          "epistemic_type": {"enum": ["theorem", "bound", "certificate"]},
+          "formal_level": {"enum": ["L1", "L2", "L3"]},
+          "lifecycle": {"enum": ["DRAFT", "FROZEN", "RUNNING", "CLOSED", "WITHDRAWN"]},
+          "proof": {"enum": ["UNCHECKED", "PROVED", "DISPROVED", "UNKNOWN"]},
+          "semantic_review": {"enum": ["PENDING", "AUTO_AUDITED", "HUMAN_AUDITED", "REJECTED"]},
+          "freshness": {"enum": ["FRESH", "STALE"]},
+          "assurance": {"enum": ["NUMERICAL", "VERIFIED_CHECKER_RUNTIME", "KERNEL_PROOF", "EXTERNAL_RECHECKED"]},
+          "applicability": {"enum": ["ELIGIBLE", "NOT_APPLICABLE", "DEFERRED"]},
+          "spec_file": {"$ref": "#/$defs/leanPath"},
+          "proof_file": {"$ref": "#/$defs/leanPath"},
+          "theorem_name": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_'.]*$"},
+          "scope_note": {"type": "string", "minLength": 1},
+          "error_reason": {"type": ["string", "null"]},
+          "assumption_ids": {"type": "array", "items": {"type": "string"}},
+          "empirical_dependencies": {"type": "array", "items": {"type": "string"}},
+          "certificate_file": {"anyOf": [{"$ref": "#/$defs/jsonPath"}, {"type": "null"}]},
+          "frozen_hashes": {"$ref": "#/$defs/hashMap"},
+          "last_verified_at": {"type": ["string", "null"]},
+          "verification_snapshot": {"anyOf": [{"$ref": "#/$defs/hashMap"}, {"type": "null"}]},
+          "semantic_review_note": {"type": "string"},
+          "semantic_review_at": {"type": "string"},
+          "frozen_at": {"type": "string"},
+          "semantic_approval": {"$ref": "#/$defs/approvalEvidence"},
+          "required_approval": {"$ref": "#/$defs/approvalEvidence"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "leanPath": {"type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+\\.lean$"},
+    "jsonPath": {"type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+\\.json$"},
+    "hashMap": {
+      "type": "object",
+      "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    },
+    "approvalEvidence": {
+      "anyOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["file", "sha256", "marker"],
+          "properties": {
+            "file": {"type": "string", "pattern": "^state/(?!\\.\\.(?:/|$))(?!.*(?:/)\\.\\.(?:/|$)).+"},
+            "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "marker": {"type": "string", "pattern": "^\\[(?:APPROVED|REWORK|REQUIRED) LeanGate LG-P[1-9][0-9]*-[A-Z0-9]+(?:-[A-Z0-9]+)*\\]$"}
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "product_version": "0.3.1",
+  "schema_version": 1,
+  "leangate_version": 1,
+  "lean_toolchain": "leanprover/lean4:v4.32.0",
+  "runtime_bindings": ["claude", "codex", "opencode", "dsh"],
+  "migration_range": {"minimum": "0.3.0", "maximum": "0.3.x"}
+}

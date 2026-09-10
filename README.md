@@ -5,7 +5,7 @@
 [![Multi-Runtime](https://img.shields.io/badge/Runtime-Claude%20Code%20%7C%20dsh%20%7C%20opencode%20%7C%20Codex-blue)](#多-runtime-支持)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Demos: CUMCM 2020C & 2025A](https://img.shields.io/badge/Demos-2020C%20%7C%202025A-orange)](demo/)
-[![Version](https://img.shields.io/badge/version-v0.3.0-brightgreen)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v0.3.1-brightgreen)](CHANGELOG.md)
 
 ---
 
@@ -58,13 +58,52 @@ AI 完全自主推进，每个阶段完成后立即写入自评报告并自动�
 
 ### MANUAL 模式（手动规格驱动）
 
-AI 在开始核心建模之前会暂停，等待人类在 `human_intervention.md` 中填写精确的数学规格（模型类型、决策变量、目标函数、约束条件、求解器）。之后 AI 100% 按照该规格实现，不自行添加任何内容。每个阶段完成后同样需要人类填写 `[APPROVED]` 才能继续。
+AI 在开始核心建模之前会暂停，等待人类在 `human_intervention.md` 中填写精确的数学规格（模型类型、决策变量、目标函数、约束条件、求解器）。之后 AI 100% 按照该规格实现，不自行添加任何内容。每个阶段完成后同样需要人类填写 review request 给出的阶段／轮次批准标记才能继续。
 
 **适用场景**：人类已有明确建模思路，需要精确控制模型细节；或希望对每个阶段保持严格的人工审核。
 
 ### 混用策略
 
 两种模式可在同一次竞赛中组合使用：数据预处理阶段用 AP 快速完成，核心建模阶段切换至 MANUAL 确保数学严谨性。
+
+---
+
+## LeanGate：Lean 4 形式化验证
+
+v0.3.1 新增可选的 LeanGate addon。它把适合形式化的关键数学结论翻译为 Lean 4
+规格，并由 Lean kernel 检查证明，而不是把 Agent 输出的“验证通过”当作证据。
+
+LeanGate 适合验证整数解可行性、容量与守恒约束、安全上下界、图论性质、动态规划
+递推、算法不变量、单调性/唯一性/收敛条件，以及求解器证书。它不能证明原始数据真实、
+统计模型拟合良好、经验假设符合现实或最终决策具有价值合理性；这些仍由 Python 验证、
+统计检验、敏感性分析与人工审查负责。
+
+```bash
+# 安装时准备项目固定的 Lean toolchain
+bash install.sh --with-lean
+
+# selected：只强制已经登记且适用的结论；required：每个问题必须有人工批准的义务
+python scripts/pipeline_manager.py init --mode AP --contest CUMCM \
+  --lean-policy selected
+python scripts/leangate.py doctor
+```
+
+启用后，离开 `problem_analysis` 前必须为每个问题登记 `ELIGIBLE` 或有理由的
+`NOT_APPLICABLE` 结论并封存分类；单独的 `DEFERRED` 不能放行。安全、可行性、守恒、
+不变量、收敛、证书或决策关键结论使用 `--risk-category` 后自动成为 mandatory：
+
+```bash
+python scripts/leangate.py --workspace CUMCM_Workspace register ... \
+  --risk-category safety_bound \
+  --classification-reason "该边界决定最终方案是否可行"
+python scripts/leangate.py --workspace CUMCM_Workspace seal-assessment
+python scripts/quality_gate.py formal-assessment
+```
+
+分类封存后，删除、降级或改成不适用都会被门禁拒绝。规格、证明、证书、审批文件、
+Lean 工程配置或任一本地 Lean 源文件发生变化，旧结果都会变为 `STALE`。在
+`model_N_verify` 和最终 `launch-check` 阶段还会重新执行内核证明及公理审计。
+详细信任边界见 [`LEAN_GATE_DESIGN.md`](LEAN_GATE_DESIGN.md)。
 
 ---
 
@@ -109,7 +148,7 @@ not_started → in_progress → pending_review → approved
 | **Markdown 注入防护** | 用户提供的文本在写入 pipeline 状态文件前自动脱敏，防止伪造 `[APPROVED]`/`[REWORK]` 控制标记 |
 | **返工上限** | 默认每阶段最多返工 5 次，超出后暂停等待人工介入，防止无限循环（`--max-reworks N` 可调整） |
 | **密钥提交拦截** | 竞赛 Git 提交前扫描暂存区，检测到 OpenAI key、GitHub token 等模式时自动阻止提交 |
-| **历史记录保护** | `[APPROVED]`/`[REWORK]` 标记替换采用 `count=1`，保留完整审查历史，不覆盖旧记录 |
+| **历史记录保护** | 批准／返工标记绑定阶段与轮次，消费时仅替换对应记录，保留完整审查历史 |
 | **JSON 损坏恢复** | `pipeline.json` 解析失败时给出明确错误信息和恢复建议，不崩溃退出 |
 
 ### Mind-Reader 实时思维可视化
@@ -123,10 +162,11 @@ not_started → in_progress → pending_review → approved
 # 方式一：Docker（docker-compose.yml 已有的服务，需要本机装 Docker）
 docker compose up mind-reader
 
-# 方式二：原生启动（不需要 Docker，Agent 可以自己检测依赖、按需安装并启动，
-# 很多沙盒化 runtime 环境里没有 Docker，这条路径就是为此准备的）
+# 方式二：原生启动（不需要 Docker；缺少依赖时只报告，
+# 仅在用户明确选择 --install 后安装）
 python scripts/launch_mind_reader.py --check   # 只检查依赖
 python scripts/launch_mind_reader.py           # 后台启动，打印 URL 后立即返回
+python scripts/launch_mind_reader.py --install # 授权安装缺失依赖后启动
 python scripts/launch_mind_reader.py --workspace /path/to/CUMCM_Workspace --port 8090
 ```
 
@@ -237,8 +277,8 @@ python scripts/pipeline_manager.py contest-git tag final-v2 "第二轮修改后�
 （2026年修订稿）》与 MCM/ICM（COMAP）官方规则；`quality_gate.py anon-check`
 做匿名性启发式检查；`scripts/ai_usage_doc.py` 按各自赛制官方格式生成 AI 工具
 使用声明（CUMCM 的独立 PDF支撑材料 / MCM 的 `Report on Use of AI Tools` 章节），
-取材于工作日志、不自动插入论文——**AutoMCM-Pro 不对使用者怎么用这份工具做限定，
-但"核心建模与分析必须由参赛队独立完成"这条规则是使用者自己需要把握的边界**。
+取材于工作日志、不自动插入论文。**AutoMCM-Pro 仅用于数学建模领域的学习、研究
+与技术交流；参赛时还必须遵守相应规则，包括由参赛队独立完成核心建模与分析。**
 
 ---
 
@@ -252,7 +292,14 @@ cd AutoMCM-Pro
 bash install.sh
 ```
 
-安装完成后，`/auto-mcm`、`/cumcm-master`、`/mcm-master` 三个命令在任意目录的 Claude Code 会话中均可使用。
+首次交互安装会先询问是否检查并安装核心 Python 建模依赖（默认是），再询问是否
+准备固定版本的 Lean 4（默认否）；也可分别用 `--with-python-deps` /
+`--without-python-deps` 和 `--with-lean` / `--without-lean` 明确选择。默认安装 Claude Code、Codex、
+OpenCode 与 DSH 绑定；`--runtime dsh` 等参数可只装指定运行时。
+每个新的智能体会话首次触发本 Skill 时也会先询问是否准备这些依赖，但不会预扫描
+环境或静默安装；同一会话只询问一次。
+安装完成后，Claude Code 中的 `/auto-mcm`、`/cumcm-master`、`/mcm-master`
+以及其他运行时的 `auto-mcm` Skill 均可使用。
 
 ### 第二步：把工作目录拷贝到竞赛目录
 
@@ -362,7 +409,7 @@ AI：明白，已更新约束。开始编码……（后续相同）
 
 ### 前置条件
 
-- [Claude Code](https://claude.ai/code) 已安装（`claude` CLI 可用）
+- 至少一个受支持的 Agent 运行时：Claude Code、Codex、OpenCode 或 DSH
 - Python 3.10+
 - 基础依赖：`pip install pdfplumber scipy numpy matplotlib pandas openpyxl`
 - 可选：TeX Live 或 MiKTeX（LaTeX 编译，也可用 Docker 替代）
@@ -376,20 +423,35 @@ git clone https://github.com/RealSeaberry/AutoMCM-Pro
 cd AutoMCM-Pro
 bash install.sh          # 符号链接安装（推荐，git pull 自动更新）
 bash install.sh --copy   # 文件拷贝安装（无 git 环境）
+bash install.sh --runtime opencode --runtime dsh --with-lean
+bash install.sh --with-python-deps --with-lean  # 无交互环境显式准备依赖
 bash install.sh --check  # 检查安装状态
 ```
+
+首次交互安装会询问是否检查并安装核心 Python 建模依赖，随后询问是否安装 Elan 并
+准备项目固定的 Lean toolchain。CI/无交互环境默认不安装依赖，须显式传入
+`--with-python-deps` 和/或 `--with-lean`。Python 包可能由其他项目共享，卸载时不会
+自动删除。安装器不会覆盖已有的非托管 Skill 目录。
+此外，每个新的智能体会话首次触发 Skill 时会询问一次是否准备依赖；不会在询问前
+扫描或安装，无法交互的 headless 模式会显示问题并暂停。
 
 ### 更新
 
 ```bash
 cd AutoMCM-Pro
-git pull   # 符号链接安装下，Skill 自动生效，无需重装
+git pull
+bash update.sh           # 校验并刷新绑定；copy 安装会原子替换托管副本
+bash update.sh --check   # 仅比较已安装版与当前 checkout
 ```
 
 ### 卸载
 
 ```bash
 bash uninstall.sh
+bash uninstall.sh --runtime dsh              # 只移除一个运行时
+bash uninstall.sh --purge-leangate-cache           # 同时清除托管 LeanGate 缓存
+# 仅安装器创建了该 toolchain 时才允许：
+bash uninstall.sh --purge-toolchain --yes
 ```
 
 ---
@@ -410,7 +472,7 @@ AutoMCM-Pro/
 ├── LOS_ALAMOS_DESIGN.md / _INTEGRATION.md / _METHOD_CATALOG.md  # 探索层设计与方法库
 ├── DSH_INTEGRATION.md / OPENCODE_INTEGRATION.md / CODEX_INTEGRATION.md  # 三个 runtime 绑定背景
 ├── CHANGELOG.md                  # 版本变更记录
-├── install.sh / uninstall.sh     # 安装/卸载
+├── install.sh / update.sh / uninstall.sh  # 安装/更新/卸载
 ├── init_gitops.sh                # 交互式初始化引导
 ├── docker-compose.yml            # 容器化环境（Python + TeX Live）
 ├── scripts/
@@ -459,6 +521,24 @@ python scripts/compile_pdf.py --mode mcm --memo  # MCM + Memo
 docker-compose up -d cumcm-agent
 docker exec -it cumcm-agent python scripts/compile_pdf.py
 ```
+
+---
+
+## 免责声明
+
+下载、安装或使用本项目，即表示使用者已阅读、理解并同意本免责声明；如不同意，请勿下载、安装或使用本项目。
+
+**项目性质。** 本文所称 **Skill**，是由提示指令、工作流程规则、配置、脚本、模板及配套资源组成，供编程智能体加载、解释和调用的本地能力扩展包。它不是人工智能模型或智能体，不具备自主感知、推理、决策、调用工具或启动任务的能力；其中的脚本也只有在使用者或智能体明确调用并获得运行环境授权后才会执行。AutoMCM-Pro 必须依托使用者选择、配置和授权的编程智能体运行，例如 Codex、Claude Code、OpenCode 或 DeepSeek Harness，实际模型推理、任务规划、文件访问、命令执行和网络请求均由相应智能体、运行环境或第三方服务完成。
+
+本项目以源代码形式公开发布，不提供基础模型、模型推理接口、智能体托管、代操作或生成内容服务，也不代表任何智能体或模型服务提供者。使用者下载和安装本项目后，自主选择、配置并授权所使用的智能体及运行环境；本项目不会在未经调用和授权时自行运行、取得系统权限或远程控制设备。上述说明是本项目对 Skill 的技术定义，而非具有普遍效力的法律定义；是否涉及备案、登记、安全评估或其他监管义务，应由实际集成者、部署者或服务提供者依其功能、用户范围及服务方式自行评估。
+
+**限定用途。** 本项目仅用于数学建模领域的学习、研究与技术交流。输出可能存在错误或遗漏，不保证准确性、完整性、适用性或竞赛成绩，也不构成法律、金融、医疗或其他专业意见。使用者应独立核验结果，并遵守适用法律法规、竞赛规则及知识产权许可；不得将本项目用于违法违规、侵权、作弊或损害他人权益的活动。
+
+**数据与个人信息。** 本 Skill 不包含以收集、用户画像、广告追踪、监控或回传用户数据为目的的脚本、接口或功能。Skill 对题目、数据和文件的读取，以及运行过程中产生的工作区、日志和验证记录，属于使用者授权智能体在使用者控制环境内进行的本地处理。使用者启用模型 API、MCP、联网检索、图像生成、软件或 Lean 工具链下载等功能时，相关数据可能由其选定的第三方服务处理；使用者应事先审查第三方条款、隐私政策、数据处理地点和权限范围，并自行决定是否提供数据。
+
+使用者应确保对输入的数据具有合法处理依据和必要授权，遵循目的明确、最小必要原则，并在可行时进行去标识化或匿名化。不得输入敏感个人信息、未公开数据、商业秘密、国家秘密或其他受限制信息；不得通过本项目非法收集、买卖、提供或公开他人信息。
+
+**系统与权限安全。** 使用者仅应向智能体授予完成数学建模所必需的最小权限，并对输入内容、权限授予、操作指令、使用方式及结果核验负责。不得指示或利用智能体实施未经授权的访问、扫描或测试，绕过安全措施，植入或传播恶意程序，干扰网络服务，或者非法获取、删除、修改、控制计算机信息系统及其数据。
 
 ---
 
@@ -522,13 +602,42 @@ The AI runs fully autonomously, completing each stage and then immediately writi
 
 ### MANUAL Mode (Specification-Driven)
 
-Before starting core modeling, the AI pauses and waits for the human to fill in a precise mathematical specification in `human_intervention.md` (model type, decision variables, objective function, constraints, solver). The AI then implements exactly that specification — no autonomous extensions. Each stage also requires a human `[APPROVED]` to continue.
+Before starting core modeling, the AI pauses and waits for the human to fill in a precise mathematical specification in `human_intervention.md` (model type, decision variables, objective function, constraints, solver). The AI then implements exactly that specification — no autonomous extensions. Each stage also requires the stage/round approval marker shown in the review request.
 
 **Best for**: When you have a clear modeling strategy and want precise control; or when you want strict human review at every checkpoint.
 
 ### Mixing Modes
 
 The two modes can be combined within a single competition: AP mode for fast data preprocessing, then MANUAL for the critical modeling stages.
+
+---
+
+## LeanGate: Optional Lean 4 Formal Verification
+
+LeanGate is disabled by default. It verifies selected exact mathematical claims and
+solver certificates; it does not claim to verify an entire numerical program or empirical
+model. Enable it when initializing a pipeline:
+
+```bash
+python scripts/pipeline_manager.py init --mode AP --contest CUMCM --lean-policy selected
+python scripts/leangate.py doctor
+python scripts/leangate.py --workspace CUMCM_Workspace status --problem-n 1
+```
+
+When LeanGate is enabled in the AutoMCM pipeline, every problem must receive an auditable
+formal-applicability classification before leaving `problem_analysis`. High-risk structural
+claims are registered with `--risk-category` and automatically become mandatory. Seal the
+classification with `seal-assessment`; later deletion or downgrade is rejected by the gates.
+
+```bash
+python scripts/leangate.py --workspace CUMCM_Workspace register ... \
+  --risk-category safety_bound --classification-reason "controls final feasibility"
+python scripts/leangate.py --workspace CUMCM_Workspace seal-assessment
+```
+
+Use `required` instead of `selected` only when every problem is expected to carry an approved
+formal obligation. A changed specification, proof, or certificate invalidates the previous
+result automatically. See `LEAN_GATE_DESIGN.md` for the trust boundary.
 
 ---
 
@@ -586,11 +695,11 @@ A FastAPI + WebSocket web UI at `http://localhost:8080` renders the AI's thought
 # Option 1: Docker (the docker-compose.yml service, requires Docker locally)
 docker compose up mind-reader
 
-# Option 2: Native (no Docker needed — an Agent can detect deps, install them
-# on demand, and launch it itself; many sandboxed runtime environments don't
-# have Docker, and this path exists for exactly that case)
+# Option 2: Native (no Docker needed; missing dependencies are only reported
+# unless the user explicitly selects --install)
 python scripts/launch_mind_reader.py --check   # dependency check only
 python scripts/launch_mind_reader.py           # background launch, prints URL and returns
+python scripts/launch_mind_reader.py --install # authorize missing dependency installation, then launch
 python scripts/launch_mind_reader.py --workspace /path/to/CUMCM_Workspace --port 8090
 ```
 
@@ -837,7 +946,7 @@ Artifacts in `demo/2025A/`: paper [`final_paper_2025A_smoke_screen.pdf`](demo/20
 
 ### Prerequisites
 
-- [Claude Code](https://claude.ai/code) installed
+- At least one supported agent runtime: Claude Code, Codex, OpenCode, or DSH
 - Python 3.10+
 - `pip install pdfplumber scipy numpy matplotlib pandas openpyxl`
 - Optional: TeX Live or MiKTeX (or use Docker)
@@ -851,20 +960,55 @@ git clone https://github.com/RealSeaberry/AutoMCM-Pro
 cd AutoMCM-Pro
 bash install.sh          # symlink install (recommended — git pull auto-updates)
 bash install.sh --copy   # copy install (for non-git environments)
+bash install.sh --runtime opencode --runtime dsh --with-lean
+bash install.sh --with-python-deps --with-lean  # explicitly prepare dependencies in non-interactive use
 bash install.sh --check  # check installation status
 ```
+
+The first interactive installation asks whether to check/install the core Python modeling
+dependencies, then whether to install Elan and prepare the pinned Lean toolchain. A
+non-interactive installation installs neither unless `--with-python-deps` and/or `--with-lean`
+is explicit. Shared Python packages are not removed during uninstall. Existing unmanaged Skill
+directories are never overwritten.
+On the first Skill invocation in each new agent session, the agent also asks once whether to
+prepare these dependencies. It does not scan or install before consent; a headless runtime that
+cannot receive an answer displays the question and pauses.
 
 ### Update
 
 ```bash
-git pull   # symlink install: Skills update automatically
+git pull
+bash update.sh           # validate/refresh links; atomically replace a managed copy
+bash update.sh --check   # compare the receipt with this checkout only
 ```
 
 ### Uninstall
 
 ```bash
 bash uninstall.sh
+bash uninstall.sh --runtime dsh
+bash uninstall.sh --purge-leangate-cache
+# Allowed only when the receipt proves installer ownership:
+bash uninstall.sh --purge-toolchain --yes
 ```
+
+---
+
+## Disclaimer
+
+By downloading, installing, or using this project, the user acknowledges that they have read, understood, and agreed to this Disclaimer. If the user does not agree, they must not download, install, or use the project.
+
+**Project classification.** In this document, a **Skill** means a local capability-extension package—composed of prompts, workflow rules, configuration, scripts, templates, and supporting resources—that is loaded, interpreted, and invoked by a coding agent. A Skill is not an AI model or agent and cannot autonomously perceive, reason, decide, invoke tools, or initiate tasks. Its included scripts execute only when explicitly invoked by a user or agent with permission from the runtime environment. AutoMCM-Pro therefore requires a coding agent selected, configured, and authorized by the user, such as Codex, Claude Code, OpenCode, or DeepSeek Harness. Model inference, task planning, file access, command execution, and network requests are performed by the applicable agent, runtime, or third-party service.
+
+The project is publicly distributed as source code and does not provide a foundation model, model-inference endpoint, hosted agent, managed operation, or generated-content service, nor does it represent any agent or model provider. After downloading and installing the project, users select, configure, and authorize their agent and runtime. The project does not run, acquire system permissions, or remotely control devices without invocation and authorization. This is the project's technical definition of a Skill, not a generally binding legal definition. Actual integrators, deployers, and service providers must independently assess any filing, registration, security-assessment, or other obligations according to the functionality, users, and mode of service involved.
+
+**Limited purpose.** This project is solely for learning, research, and technical exchange in mathematical modeling. Outputs may contain errors or omissions and are not guaranteed to be accurate, complete, fit for purpose, or successful in any competition. They do not constitute legal, financial, medical, or other professional advice. Users must independently verify results and comply with applicable laws, competition rules, and intellectual-property licences. The project must not be used for unlawful, infringing, deceptive, or harmful activities.
+
+**Data and personal information.** The Skill contains no script, interface, or feature whose purpose is to collect, profile, track, monitor, or transmit user data. Reading problem statements, data, and files, and creating workspaces, logs, or verification records, are local processing performed by the user-authorized agent within an environment controlled by the user. If a user enables a model API, MCP service, web search, image generation, software download, or Lean toolchain download, relevant data may be processed by the third party selected by that user. Users should review the provider's terms, privacy policy, processing locations, and permission scope before deciding whether to provide data.
+
+Users must have a lawful basis and necessary authorization for input data, observe purpose limitation and data minimization, and use de-identification or anonymization where practicable. Do not submit sensitive personal information, non-public data, trade secrets, state secrets, or other restricted information. Do not use the project to unlawfully collect, trade, provide, or disclose another person's information.
+
+**System and permission security.** Grant an agent only the minimum permissions necessary for mathematical modeling. Users are responsible for their inputs, permissions, instructions, manner of use, and verification of results. Do not direct or use an agent to conduct unauthorized access, scanning, or testing; bypass safeguards; introduce or distribute malicious code; disrupt network services; or unlawfully obtain, delete, alter, or control computer systems or data.
 
 ---
 

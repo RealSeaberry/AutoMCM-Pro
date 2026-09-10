@@ -41,6 +41,13 @@ DeepSeek Harness 绑定是 `.dsh/skills/auto-mcm/SKILL.md`，Codex 绑定是
 以上 12 个工具 id **全部用真实任务实测过**（不是文档推断），详见
 [`OPENCODE_INTEGRATION.md`](../../../OPENCODE_INTEGRATION.md) §3。
 
+## 【触发时的依赖安装询问】
+
+每个新的 OpenCode 会话首次触发本 Skill 时，先用 `question` 分别询问是否安装核心
+Python 建模依赖，以及是否准备可选的 LeanGate / Lean 4。不预扫描、不静默安装；
+用户同意后才调用 `bash install.sh --with-python-deps` 和/或 `--with-lean`，拒绝后
+同一会话不重复询问。`opencode run` 无法等待回答时，显示问题并暂停，不得自行选择。
+
 **⚠ 关键限制：`question` 在 `opencode run`（单次任务/headless）模式下默认权限
 是 deny**——模型会尝试提问，但工具调用被权限系统挡下，退化成打印文字、没人能
 回答。**【唤醒协议】Step 2a、MANUAL 模式的逐阶段确认、Checkpoint LA 的强制人类
@@ -99,3 +106,27 @@ mcm-entry`、`compile_pdf.py` 编译后页数提醒，AutoMCM_SOP.md §17）、�
 ## 【安全规程】
 
 `AutoMCM_SOP.md` 的 S1~S5 原样适用。
+
+---
+
+## 【LeanGate：可选 Lean 形式化验证】
+
+LeanGate 默认关闭；共享规范见 `AutoMCM_SOP.md §19`。OpenCode 用 `bash` 调用同一实现：
+
+```bash
+python scripts/leangate.py doctor
+python scripts/leangate.py --workspace CUMCM_Workspace init --policy selected
+python scripts/leangate.py --workspace CUMCM_Workspace status --problem-n 1
+python scripts/leangate.py --workspace CUMCM_Workspace verify --problem-n 1
+python scripts/quality_gate.py formal --problem-n 1
+```
+
+LeanGate 启用后，离开 `problem_analysis` 前必须逐问题登记适用性并执行
+`leangate.py seal-assessment`；安全边界、整数可行性、守恒、不变量、递推、收敛、
+求解器证书或决策关键结论必须用 `--risk-category` 标注，自动成为 mandatory。
+
+不得直接编辑权威状态或用 reviewer 意见升级 `FORMALLY_PROVED`。输入变化后必须重新审查、
+冻结和验证；Lean FAIL、UNKNOWN、STALE 或 Python FAIL 都是 NO-GO。
+LeanGate 启用后的 `model_N_verify` 推进必须传入工作区内真实验证脚本：
+`pipeline_manager.py advance model_N_verify --verify-script CUMCM_Workspace/src/verifications/verify_*.py`。
+`required` claim 还必须使用人类文件中的 `[APPROVED LeanGate ...]` 与 `[REQUIRED LeanGate ...]` 标记。

@@ -6,6 +6,76 @@ Version scheme: [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.3.1] — 2026-09-11
+
+### Added
+
+- LeanGate optional Lean 4 addon with pinned toolchain, exact resource-allocation
+  certificate generation, versioned claim manifest, semantic review/freeze workflow,
+  kernel verification, forbidden-token audit, freshness invalidation, JSON reports,
+  reproducible artifact export, and `selected`/`required` policies.
+- `quality_gate.py formal` plus LeanGate checks in `all` and `launch-check`;
+  `pipeline_manager.py advance` now refuses a verify-stage transition when an enabled
+  formal gate fails.
+- Mandatory per-problem formal-applicability classification before leaving
+  `problem_analysis`, with immutable sealed baselines and automatic mandatory promotion
+  for safety, feasibility, conservation, invariant, convergence, certificate, and
+  decision-critical risk categories.
+- LeanGate instructions for Claude Code, Codex, OpenCode, and DSH bindings.
+- Receipt-backed lifecycle management for Claude Code, Codex, OpenCode, and DSH:
+  selective install/uninstall, symlink or managed-copy mode, integrity checks,
+  atomic copy updates with rollback, and conservative cleanup.
+- Optional installation of the pinned Lean toolchain through Elan; uninstall only
+  removes a toolchain when the receipt records that this installer created it.
+
+### Security
+
+- LeanGate rejects `sorry`, `admit`, `unsafe`, custom axioms, path traversal,
+  symlinked Lean inputs/directories (including `.lake`), unparseable axiom reports,
+  stale approval evidence, and claim/obligation registry tampering.
+- Certificate claims must name an exact JSON certificate, and generated Lean files
+  embed its SHA-256 digest. Specs, proofs, certificates, project configuration,
+  all local Lean sources, claim scope, and approval evidence participate in freshness.
+- Export and launch gates independently rerun Lean compilation and `#print axioms`;
+  copied reports or Agent-authored PASS text cannot satisfy the gate.
+- Stage approvals are bound to stage and review round, preventing reuse of stale
+  `[APPROVED]` markers.
+
+### Fixed
+
+- Preserve installer ownership of Elan/toolchains across updates so an owned Lean
+  toolchain remains safely removable without permitting deletion of user-managed ones.
+- Refuse unsafe or malformed installation receipts, unmanaged Skill destinations,
+  partial-install orphan links, and silent deletion of an unresolved rollback backup.
+- Require `epistemic_type=certificate` claims to provide `certificate_file`; reject
+  symlink directories before excluding ordinary Lean build caches.
+
+### Validation
+
+- Added 31 automated tests covering LeanGate unit, end-to-end kernel, security, pipeline,
+  and install/update/uninstall behavior.
+- Verified Lean builds with the pinned `leanprover/lean4:v4.32.0` toolchain.
+- Independently reviewed and executed by OpenCode and DeepSeek Harness (DSH), both PASS.
+
+### Changed
+
+- Renamed the formal-verification addon uniformly to **LeanGate** (`leangate` on
+  disk and in CLI paths) while retaining AutoMCM-Pro as the product name.
+- Added a bilingual project-classification, limited-purpose, data/privacy, and
+  system-permission disclaimer clarifying that AutoMCM-Pro is a locally invoked
+  coding-agent Skill rather than a model or independently operating agent.
+- First interactive installation now asks whether to install the core Python modeling
+  dependencies and whether to prepare LeanGate; non-interactive installation uses explicit
+  `--with-python-deps` and `--with-lean` opt-ins.
+- The four agent bindings now ask once on their first Skill invocation in each new session;
+  they do not pre-scan or silently install dependencies, and non-interactive runtimes pause.
+- The native Mind-Reader launcher now reports missing dependencies and exits unless the
+  user explicitly authorizes installation with `--install`.
+- `setup_workspace.py` and `pipeline_manager.py init` accept `--lean-policy` while
+  preserving the previous default (`off`).
+- Human stage approvals are round-scoped (`[APPROVED:<stage>:<round>]`) so stale
+  approval markers cannot authorize later pipeline rounds.
+
 ## [0.3.0] — 2026-08-25
 
 ### Added

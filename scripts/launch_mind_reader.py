@@ -3,12 +3,13 @@
 launch_mind_reader.py — 原生（非 Docker）启动 Mind-Reader 实时思维可视化服务器
 
 Docker 版本（docker-compose.yml）依然可用，但要求本机有 Docker；很多沙盒化
-的 coding agent runtime 环境里没有 Docker，这个脚本让 agent 自己检测依赖、
-按需安装、原生启动，不依赖容器。
+的 coding agent runtime 环境里没有 Docker，这个脚本可检测依赖并原生启动；
+只有用户显式传入 --install 时才会安装缺失依赖。
 
 用法：
   python scripts/launch_mind_reader.py --check          # 只检查依赖，不启动
-  python scripts/launch_mind_reader.py                  # 检查+按需安装依赖，后台启动，打印 URL 就返回
+  python scripts/launch_mind_reader.py                  # 依赖齐全时后台启动
+  python scripts/launch_mind_reader.py --install        # 用户明确授权安装缺失依赖后启动
   python scripts/launch_mind_reader.py --foreground      # 前台阻塞运行（Ctrl+C 停止），交互式终端用
   python scripts/launch_mind_reader.py --workspace /path/to/CUMCM_Workspace --port 8090
 """
@@ -76,6 +77,10 @@ def _wait_healthy(port: int, timeout: float = 15.0) -> bool:
 def cmd_run(args):
     missing = _check_deps()
     if missing:
+        if not args.install:
+            print(f"[mind-reader] ✗ 缺少依赖: {', '.join(missing)}", file=sys.stderr)
+            print("  如果同意安装，请重新运行并显式加上 --install", file=sys.stderr)
+            return 2
         _install_deps()
 
     workspace = Path(args.workspace).resolve()
@@ -125,6 +130,7 @@ def cmd_run(args):
 def main():
     p = argparse.ArgumentParser(description="原生启动 Mind-Reader（不依赖 Docker）")
     p.add_argument("--check", action="store_true", help="只检查依赖，不启动")
+    p.add_argument("--install", action="store_true", help="显式授权安装缺失的 Mind-Reader 依赖")
     p.add_argument("--workspace", default="CUMCM_Workspace", help="竞赛工作区路径")
     p.add_argument("--port", type=int, default=8080)
     p.add_argument("--foreground", action="store_true", help="前台阻塞运行（默认后台）")

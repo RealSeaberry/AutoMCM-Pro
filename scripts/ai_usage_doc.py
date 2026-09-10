@@ -104,7 +104,7 @@ def cmd_generate(args):
     if mode.upper() == "MANUAL":
         human_note = (
             "本次流水线为 MANUAL 模式：每个阶段的 Checkpoint 均等待人工审查后"
-            "填写 [APPROVED] 或 [REWORK] 才能推进，人工对每一阶段产出有实质审核；"
+            "填写绑定阶段与轮次的批准或返工标记才能推进，人工对每一阶段产出有实质审核；"
             "具体审查意见见 human_intervention.md。"
         )
     else:

@@ -60,6 +60,11 @@ Claude Code；在 dsh 上，`send_message`/`list_agents` 是一等公民 API，�
 
 ## 【唤醒协议】每次被调用时必须首先执行
 
+每个新的智能体会话首次触发本 Skill 时，先分别询问是否安装核心 Python 建模依赖，
+以及是否准备可选的 LeanGate / Lean 4。只询问，不预扫描、不静默安装；用户同意后
+才调用 `bash install.sh --with-python-deps` 和/或 `--with-lean`，拒绝后本会话不再
+重复询问。headless profile 无法等待回答时，显示问题并暂停，不得把沉默当作同意。
+
 与 Claude Code 版本完全一致的三步判断，只是命令执行工具换成 `bash`：
 
 ```
@@ -79,15 +84,10 @@ bash: python scripts/pipeline_manager.py status
    bash: python scripts/pipeline_manager.py init --mode {AP|MANUAL} --contest {CUMCM|MCM|ICM} --problems {N} --git
    bash: cp PROBLEM_PATH CUMCM_Workspace/data/
    ```
-4. 自然语言告知用户就绪状态，随后按【依赖自检】和【流水线执行】继续，不等待用户输入
+4. 自然语言告知用户就绪状态，随后按【按需依赖处理】和【流水线执行】继续
 
-**依赖自检**（首次启动 & 每次唤醒，`bash` 执行）：
-```
-python -c "import pdfplumber, scipy, numpy, matplotlib, pandas, openpyxl" 2>/dev/null \
-  || pip install -q pdfplumber scipy numpy matplotlib pandas openpyxl
-which xelatex >/dev/null 2>&1 || echo "[提示] 未检测到 xelatex"
-python scripts/plot_style.py check   # 中文图表字体自检，见【图表风格规范】
-```
+**按需依赖处理：**不要在唤醒时扫描或安装。实际命令因缺少 Python 包、LaTeX 或字体
+而失败时，报告缺失项；只有用户明确同意后才安装。
 
 ---
 
@@ -100,8 +100,8 @@ bash: python scripts/pipeline_manager.py request-review \
   --stage "<stage>" --summary "..." --results "..." --concerns "..." --next "<next-stage>"
 ```
 
-- **AP 模式**：在 `state/human_intervention.md` 写入 `[APPROVED]` 自评，`bash` 执行
-  `pipeline_manager.py advance <stage>`，然后用自然语言汇报成果并直接开始下一阶段
+- **AP 模式**：`request-review` 会自动写入绑定阶段与轮次的自评批准；随后用 `bash`
+  执行 `pipeline_manager.py advance <stage>`，自然语言汇报成果并直接开始下一阶段
 - **MANUAL 模式**：展示汇报摘要，用 `ask_user_question`（而不是终端等待输入）明确
   询问"继续，还是需要修改？"，拿到回复后再决定 approve 还是 rework
 
@@ -222,6 +222,30 @@ pnpm dsh --profile headless "读取 problem.pdf 并开始建模"
 
 需要 Node.js `^22.19` 或 `>=24`，以及 `DEEPSEEK_API_KEY`（或部署配置的其他模型
 provider）。Python 依赖（`pdfplumber`/`scipy`/`numpy`/……）与 Claude Code 绑定
-完全一样，走【依赖自检】小节的同一条 `bash` 命令安装。
+完全一样，只在用户对触发时的询问明确同意后调用安装器准备。
 
 详细的架构对照与已知差异见 [`DSH_INTEGRATION.md`](../../../DSH_INTEGRATION.md)。
+
+---
+
+## 【LeanGate：可选 Lean 形式化验证】
+
+LeanGate 默认关闭；共享规范见 `AutoMCM_SOP.md §19`。DSH 用 `bash` 调用同一实现：
+
+```bash
+python scripts/leangate.py doctor
+python scripts/leangate.py --workspace CUMCM_Workspace init --policy selected
+python scripts/leangate.py --workspace CUMCM_Workspace status --problem-n 1
+python scripts/leangate.py --workspace CUMCM_Workspace verify --problem-n 1
+python scripts/quality_gate.py formal --problem-n 1
+```
+
+LeanGate 启用后，离开 `problem_analysis` 前必须逐问题登记适用性并执行
+`leangate.py seal-assessment`；安全边界、整数可行性、守恒、不变量、递推、收敛、
+求解器证书或决策关键结论必须用 `--risk-category` 标注，自动成为 mandatory。
+
+不得直接编辑权威状态或用 runtime 审查意见升级 `FORMALLY_PROVED`。输入变化后必须重新
+审查、冻结和验证；Lean FAIL、UNKNOWN、STALE 或 Python FAIL 都是 NO-GO。
+LeanGate 启用后的 `model_N_verify` 推进必须传入工作区内真实验证脚本：
+`pipeline_manager.py advance model_N_verify --verify-script CUMCM_Workspace/src/verifications/verify_*.py`。
+`required` claim 还必须使用人类文件中的 `[APPROVED LeanGate ...]` 与 `[REQUIRED LeanGate ...]` 标记。

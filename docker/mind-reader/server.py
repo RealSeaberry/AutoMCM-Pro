@@ -7,6 +7,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Set
@@ -125,9 +126,9 @@ class MemoryHandler(FileSystemEventHandler):
             await broadcast({"type": "review", "content": content, "ts": _now()})
         elif path == _RESOLVED["human"]:
             # Detect approval/rework signals and broadcast alert
-            if "[APPROVED]" in content:
+            if re.search(r"\[APPROVED:[A-Za-z0-9_-]+:[1-9][0-9]*\]", content):
                 await broadcast({"type": "human_signal", "signal": "APPROVED", "ts": _now()})
-            elif "[REWORK]" in content:
+            elif re.search(r"\[REWORK:[A-Za-z0-9_-]+:[1-9][0-9]*\]", content):
                 await broadcast({"type": "human_signal", "signal": "REWORK", "ts": _now()})
         elif path == _RESOLVED["worklog"]:
             # 只推最近几行，worklog 会越写越长，没必要每次全量传输

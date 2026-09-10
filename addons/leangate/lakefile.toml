@@ -1,0 +1,12 @@
+name = "LeanGate"
+version = "0.1.0"
+defaultTargets = ["LeanGate"]
+
+[[lean_lib]]
+name = "LeanGate"
+
+[[lean_lib]]
+name = "Specs"
+
+[[lean_lib]]
+name = "Proofs"

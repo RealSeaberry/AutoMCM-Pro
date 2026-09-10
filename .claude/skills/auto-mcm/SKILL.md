@@ -16,6 +16,19 @@ description: >
 
 ## 【唤醒协议】每次被调用时必须首先执行
 
+### Step -1 — 本会话首次触发时取得依赖安装同意
+
+每个新的智能体会话中，第一次触发本 Skill 时，必须先用自然语言分别询问：
+
+> “是否安装 AutoMCM-Pro 的核心 Python 建模依赖（pdfplumber、scipy、numpy、
+> matplotlib、pandas、openpyxl）？是否同时准备可选的 LeanGate / Lean 4？”
+
+本步骤只询问，不预先扫描依赖，不把沉默视为同意，也不得在回答前联网安装。
+用户同意后，按其选择调用 `bash install.sh --with-python-deps` 和/或
+`--with-lean`；明确拒绝则继续当前任务，同一会话不再重复询问。若随后执行到依赖
+确实缺失，只报告缺失项和安装方法，不自动安装。无法等待用户回答的 headless 模式
+必须显示问题并暂停，不能自行选择。
+
 ### Step 0 — 工作日志：记一句用户这次说了什么
 
 > `AutoMCM_SOP.md` §14。只在工作区已经 `setup_workspace.py` 过（`CUMCM_Workspace/`
@@ -110,14 +123,10 @@ cp DATA_FILES   CUMCM_Workspace/data/   # 如有
 
 **所有 `pipeline_manager.py` 命令均由 Agent 在后台执行，用户只看到自然语言进度汇报。**
 
-### Step 4 — 依赖自检（首次启动 & 每次唤醒）
+### Step 4 — 按需报告依赖缺失
 
-在开始任何 Python 脚本之前，静默检查并安装必要依赖：
-
-```bash
-python -c "import pdfplumber, scipy, numpy, matplotlib, pandas, openpyxl" 2>/dev/null \
-  || pip install -q pdfplumber scipy numpy matplotlib pandas openpyxl
-```
+不要在唤醒时预扫描或静默安装依赖。只有实际命令因依赖缺失而失败时，才向用户报告
+缺失项，并在获得明确同意后调用 `bash install.sh --with-python-deps`。
 
 如需 LaTeX 编译：
 ```bash
@@ -151,9 +160,9 @@ python scripts/pipeline_manager.py request-review \
 
 ### AP 模式 — 自评自批，自动推进，自然语言汇报
 
-1. 在 `state/human_intervention.md` 中写入自评：
+1. `request-review` 自动在 `state/human_intervention.md` 中写入绑定阶段与轮次的自评：
 ```
-[APPROVED]
+[APPROVED:<stage>:<round>]
 AI 自评（<stage>）：
 - 本阶段完成情况：<一句话总结>
 - 关键数值检查：<列举 2-3 个代表性结果>
@@ -175,7 +184,8 @@ python scripts/pipeline_manager.py advance <stage>
 > "请告诉我是否继续，或者提出修改意见。"
 
 等待用户回复（**用户输入自然语言即可**，无需填写任何文件或输入命令）。  
-收到确认后自动写入 `[APPROVED]` 并执行 advance；收到修改意见则直接进入 rework。
+收到确认后自动写入 review_request 指定的 `[APPROVED:<stage>:<round>]` 并执行 advance；
+收到修改意见则写入对应 `[REWORK:<stage>:<round>]` 后进入 rework。
 
 ---
 
@@ -972,7 +982,7 @@ False`（否则负号在中文字体下经常显示异常/方框——很容易�
 西文字母数字走 DejaVu Sans（只设 `font.sans-serif` 不会触发这个逐字形回退，
 实测验证过）。
 
-若检测不到中文字体，会打印按操作系统区分的安装建议（见 Step 4 依赖自检），此时
+若检测不到中文字体，会打印按操作系统区分的安装建议（见 Step 4 按需依赖处理），此时
 **图表标题/标签暂时改用英文**，不要让方框乱码进入论文。
 
 ### 硬性规则
@@ -981,7 +991,7 @@ False`（否则负号在中文字体下经常显示异常/方框——很容易�
    配色（局部微调可以，比如某张图确实需要更大字号，但底色和分类色顺序不能改）
 2. **禁止**跳过 `plot_style.save()` 直接用 `fig.savefig()`（会漏掉 300dpi/白底/
    裁边的标准化，输出质量不稳定）
-3. 生成含中文标签的图表前，若还没跑过依赖自检，先跑
+3. 生成含中文标签的图表前，在实际需要时运行
    `python scripts/plot_style.py check` 确认字体可用
 
 ---
@@ -1109,3 +1119,28 @@ assert path.exists(), f"文件不存在: {path}"
 - 不得将 `verify_*` 未通过的模型结果写入论文
 - Manual 模式下不得自行发散
 - 不得覆写已 `approved` 的内容
+
+---
+
+## 【LeanGate：可选 Lean 形式化验证】
+
+LeanGate 默认关闭；启用方式、状态契约和禁止事项以 `AutoMCM_SOP.md §19` 为准。Claude Code
+只负责调用共享实现，不得自行写入证明成功状态：
+
+```bash
+python scripts/leangate.py doctor
+python scripts/leangate.py --workspace CUMCM_Workspace init --policy selected
+python scripts/leangate.py --workspace CUMCM_Workspace status --problem-n 1
+python scripts/leangate.py --workspace CUMCM_Workspace verify --problem-n 1
+python scripts/quality_gate.py formal --problem-n 1
+```
+
+LeanGate 启用后，离开 `problem_analysis` 前必须逐问题登记适用性并执行
+`leangate.py seal-assessment`；安全边界、整数可行性、守恒、不变量、递推、收敛、
+求解器证书或决策关键结论必须用 `--risk-category` 标注，自动成为 mandatory。
+
+规格、证明或证书修改后必须重新语义审查、冻结和验证。Lean FAIL、UNKNOWN、STALE 或
+Python FAIL 均不得写入论文为形式化结论。
+LeanGate 启用后的 `model_N_verify` 推进必须传入工作区内真实验证脚本：
+`pipeline_manager.py advance model_N_verify --verify-script CUMCM_Workspace/src/verifications/verify_*.py`。
+`required` claim 还必须使用人类文件中的 `[APPROVED LeanGate ...]` 与 `[REQUIRED LeanGate ...]` 标记。

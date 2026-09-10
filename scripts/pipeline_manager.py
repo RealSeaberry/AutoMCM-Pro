@@ -31,6 +31,8 @@ GitOps 流水线状态机 — 管理审查请求、人类批准、阶段推进�
 
 import argparse
 import json
+import re
+import subprocess
 import sys
 import textwrap
 from datetime import datetime
@@ -55,6 +57,8 @@ def _sanitize(text: str) -> str:
     """去除可能注入流水线控制标记的内容。"""
     for pat in _INJECTION_PATTERNS:
         text = text.replace(pat, pat.replace("[", "⟦").replace("]", "⟧"))
+    text = re.sub(r"\[(APPROVED|REWORK):[A-Za-z0-9_-]+:[0-9]+\]",
+                  lambda match: match.group(0).replace("[", "⟦").replace("]", "⟧"), text)
     return text
 
 WORKSPACE    = Path("CUMCM_Workspace")
@@ -148,6 +152,7 @@ def cmd_init(args):
     max_reworks   = int(getattr(args, "max_reworks", 5))
     skunk_works   = bool(getattr(args, "skunk_works", False))
     kaizen_max_rounds = int(getattr(args, "kaizen_max_rounds", 2))
+    lean_policy = getattr(args, "lean_policy", "off")
 
     stages = {s: _stage_entry() for s in STAGE_ORDER}
     state = {
@@ -167,6 +172,17 @@ def cmd_init(args):
         "problem_count": problem_count,
         "max_reworks":   max_reworks,
         "skunk_works":   skunk_works,   # Project Skunk Works：轻量快速模式，见 AutoMCM_SOP.md §10
+        "lean_formal": {
+            "enabled": lean_policy != "off",
+            "policy": lean_policy,
+            "proof_timeout_seconds": 300,
+            "problems": {},
+            "obligation_ids": [],
+            "obligation_baseline": [],
+            "required_claim_ids": [],
+            "assessment_sealed": False,
+            "assessment_baseline": [],
+        },
         "andon": {                       # Andon Cord：任何 Agent 可拉的紧急停止信号，见 §11
             "pulled": False,
             "reason": "",
@@ -180,6 +196,12 @@ def cmd_init(args):
             "problems": {},
         },
     }
+    if lean_policy != "off":
+        command = [sys.executable, str(Path(__file__).resolve().parent / "leangate.py"),
+                   "--workspace", str(WORKSPACE), "init", "--policy", lean_policy]
+        result = subprocess.run(command, text=True, capture_output=True, check=False)
+        if result.returncode != 0:
+            sys.exit(f"[pipeline] LeanGate 初始化失败:\n{result.stderr or result.stdout}")
     save(state)
 
     # 初始化 review_request.md
@@ -200,6 +222,7 @@ def cmd_init(args):
     print(f"  子问题数 : {problem_count}  {'→ AP 多 Agent 并行已开启' if problem_count > 1 else '(单问题，顺序执行)'}")
     print(f"  最大返工 : {max_reworks} 次/阶段")
     print(f"  版本控制 : {'✓ 已启用 (contest_git)' if git_enabled else '✗ 未启用 (可用 --git 开启)'}")
+    print(f"  LeanGate: {lean_policy}")
 
     # 初始化竞赛 git 仓库
     if git_enabled and _CGIT_AVAILABLE:
@@ -235,7 +258,7 @@ def _write_intervention_template(mode: str):
         f"> **模式**: {mode}\n"
         f"> **说明**: 在各阶段 AI 停下来等待时，在此文件填写审查结果。\n\n"
         f"## 审查结果区\n\n"
-        f"_(AI 停下来时，在此填写 `[APPROVED]` 或 `[REWORK] + 修改意见`)_\n"
+        f"_(AI 停下来时，按 review_request.md 给出的阶段与轮次填写批准或返工标记)_\n"
         f"{manual_spec}",
         encoding="utf-8"
     )
@@ -491,12 +514,16 @@ def cmd_request_review(args):
 
 请阅读上述报告，然后在 `state/human_intervention.md` 中填写：
 
-- 同意继续 → `[APPROVED]`
-- 需要修改 → `[REWORK]`，并在下方写明具体修改意见
+- 同意继续 → `[APPROVED:{stage}:{round_n}]`
+- 需要修改 → `[REWORK:{stage}:{round_n}]`，并在下方写明具体修改意见
 
 填写完毕后，在终端输入「**继续**」并按 Enter 唤醒 AI。
 """
     REVIEW_REQ.write_text(report, encoding="utf-8")
+    if state["mode"] == "AP":
+        with HUMAN_FILE.open("a", encoding="utf-8") as handle:
+            handle.write(f"\n[APPROVED:{stage}:{round_n}]\n"
+                         f"AI 自评：{summary}\n验证结果：{results}\n")
 
     # Append to eval log
     entry = (
@@ -519,21 +546,21 @@ def cmd_check_approval(args):
         print("PENDING")
         return "PENDING"
 
+    state = load()
+    stage = args.stage or state.get("current_stage")
+    if not stage or stage not in state["stages"]:
+        print("PENDING"); return "PENDING"
+    round_n = state["stages"][stage].get("review_round", 0)
     content = HUMAN_FILE.read_text(encoding="utf-8")
-
-    # Look for the most recent decision marker
-    if "[APPROVED]" in content:
-        print("APPROVED")
-        return "APPROVED"
-    elif "[REWORK]" in content:
-        # Extract feedback after [REWORK]
-        idx = content.rfind("[REWORK]")
-        feedback = content[idx + len("[REWORK]"):].strip()
-        print(f"REWORK\n{feedback}")
-        return "REWORK"
-    else:
-        print("PENDING")
-        return "PENDING"
+    pattern = re.compile(rf"\[(APPROVED|REWORK):{re.escape(stage)}:{round_n}\]")
+    decisions = list(pattern.finditer(content))
+    if not decisions:
+        print("PENDING"); return "PENDING"
+    latest = decisions[-1]
+    if latest.group(1) == "APPROVED":
+        print("APPROVED"); return "APPROVED"
+    feedback = content[latest.end():].strip()
+    print(f"REWORK\n{feedback}"); return "REWORK"
 
 
 def cmd_advance(args):
@@ -545,6 +572,57 @@ def cmd_advance(args):
     stage = args.stage
     if stage not in state["stages"]:
         sys.exit(f"[pipeline] 未知阶段: {stage}")
+
+    if stage == "problem_analysis" and state.get("lean_formal", {}).get("enabled"):
+        assessment = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve().parent / "quality_gate.py"),
+             "formal-assessment"], check=False)
+        if assessment.returncode != 0:
+            sys.exit("[pipeline] formal applicability assessment failed; refusing to leave problem_analysis")
+
+    if stage == "latex_draft":
+        launch = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve().parent / "quality_gate.py"),
+             "launch-check"], check=False)
+        if launch.returncode != 0:
+            sys.exit("[pipeline] launch-check failed; refusing to enter final_compile")
+
+    # LeanGate gate is evaluated before any stage state is mutated. Exit 2 means the
+    # optional addon is off/not applicable; exit 1 is a hard stop.
+    match = re.match(r"^model_(\d+)_verify$", stage)
+    if match and state.get("lean_formal", {}).get("enabled"):
+        if not args.verify_script:
+            sys.exit("[pipeline] LeanGate-enabled verify stage requires --verify-script so Python evidence is executed, not trusted as text")
+        raw_verify_script = Path(args.verify_script)
+        if not raw_verify_script.is_absolute():
+            raw_verify_script = Path.cwd() / raw_verify_script
+        current = Path(raw_verify_script.anchor)
+        if any((current := current / part).is_symlink()
+               for part in raw_verify_script.parts[1:]):
+            sys.exit("[pipeline] --verify-script cannot contain symlink components")
+        verify_script = raw_verify_script.resolve()
+        verification_root = (WORKSPACE / "src" / "verifications").resolve()
+        if verification_root not in verify_script.parents or not verify_script.is_file():
+            sys.exit(f"[pipeline] --verify-script must be a regular file under {verification_root}")
+        python_result = subprocess.run([sys.executable, str(verify_script)], text=True,
+                                       capture_output=True, check=False)
+        evidence = STATE_DIR / f"leangate_python_verify_{match.group(1)}.txt"
+        evidence.write_text(python_result.stdout + python_result.stderr, encoding="utf-8")
+        python_gate = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve().parent / "quality_gate.py"),
+             "verify", "--stage", stage, "--report-file", str(evidence)], check=False)
+        if python_result.returncode != 0 or python_gate.returncode != 0:
+            sys.exit(f"[pipeline] Python verification failed for {stage}; advance refused")
+        gate = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve().parent / "quality_gate.py"),
+             "formal", "--problem-n", match.group(1)], check=False)
+        if gate.returncode not in (0, 2):
+            sys.exit(f"[pipeline] LeanGate formal gate failed for {stage}; advance refused")
+
+    if state["stages"][stage].get("status") != "pending_review":
+        sys.exit(f"[pipeline] {stage} 尚未处于 pending_review，禁止 advance")
+    if cmd_check_approval(argparse.Namespace(stage=stage)) != "APPROVED":
+        sys.exit(f"[pipeline] {stage} 当前轮次尚无人类批准，禁止 advance")
 
     state["stages"][stage]["status"] = "approved"
     state["stages"][stage]["approved_at"] = now()
@@ -573,7 +651,9 @@ def cmd_advance(args):
     # Use count=1 to preserve history of earlier approvals
     if HUMAN_FILE.exists():
         content = HUMAN_FILE.read_text(encoding="utf-8")
-        content = content.replace("[APPROVED]", f"[APPROVED — {stage} @ {now()}]", 1)
+        round_n = state["stages"][stage].get("review_round", 0)
+        content = content.replace(f"[APPROVED:{stage}:{round_n}]",
+                                  f"[APPROVED-CONSUMED:{stage}:{round_n} @ {now()}]", 1)
         HUMAN_FILE.write_text(content, encoding="utf-8")
 
     # 自动 git 快照
@@ -600,6 +680,9 @@ def cmd_rework(args):
     state["total_reworks"] = state.get("total_reworks", 0) + 1
     state["current_stage"] = stage
     state["blocked_at"] = None
+    if stage == "problem_analysis" and state.get("lean_formal", {}).get("enabled"):
+        state["lean_formal"]["assessment_sealed"] = False
+        state["lean_formal"].pop("assessment_sealed_at", None)
     save(state)
 
     entry = (
@@ -618,7 +701,9 @@ def cmd_rework(args):
     # Clear REWORK marker (count=1 preserves history)
     if HUMAN_FILE.exists():
         content = HUMAN_FILE.read_text(encoding="utf-8")
-        content = content.replace("[REWORK]", f"[REWORK — {stage} @ {now()}]", 1)
+        round_n = state["stages"][stage].get("review_round", 0)
+        content = content.replace(f"[REWORK:{stage}:{round_n}]",
+                                  f"[REWORK-CONSUMED:{stage}:{round_n} @ {now()}]", 1)
         HUMAN_FILE.write_text(content, encoding="utf-8")
 
     # rework 起始标记提交
@@ -629,6 +714,10 @@ def cmd_rework(args):
 
 def cmd_checkpoint_banner(args):
     stage = getattr(args, "stage", "unknown")
+    try:
+        round_n = load()["stages"][stage].get("review_round", 0)
+    except (KeyError, SystemExit):
+        round_n = 0
     banner = f"""
 ╔══════════════════════════════════════════════════════════╗
 ║  ⏸  CHECKPOINT — 等待人类审查                            ║
@@ -639,8 +728,8 @@ def cmd_checkpoint_banner(args):
 ║  请操作：                                                ║
 ║  1. 阅读 state/review_request.md 中的报告                ║
 ║  2. 在 state/human_intervention.md 中填写意见            ║
-║     • 同意继续  →  写入 [APPROVED]                       ║
-║     • 需要修改  →  写入 [REWORK] + 具体指令              ║
+║     • 同意 → [APPROVED:{stage}:{round_n}]
+║     • 修改 → [REWORK:{stage}:{round_n}] + 具体指令
 ║  3. 在终端输入「继续」后按 Enter 唤醒 AI                 ║
 ╠══════════════════════════════════════════════════════════╣
 ║  Mind-Reader: http://localhost:8080                      ║
@@ -787,6 +876,8 @@ def main():
                     help="Project Skunk Works：轻量快速模式，见 AutoMCM_SOP.md §10")
     pi.add_argument("--kaizen-max-rounds", type=int, default=2, dest="kaizen_max_rounds",
                     help="Project Kaizen 每个子问题的最大打磨轮数，见 AutoMCM_SOP.md §13（默认 2）")
+    pi.add_argument("--lean-policy", choices=["off", "selected", "required"], default="off",
+                    dest="lean_policy", help="LeanGate policy（默认 off）")
 
     # status
     sub.add_parser("status")
@@ -810,6 +901,8 @@ def main():
     # advance
     pav = sub.add_parser("advance")
     pav.add_argument("stage")
+    pav.add_argument("--verify-script", default="",
+                     help="LeanGate 启用时，model_N_verify 阶段必须提供并实际执行的独立 Python 验证脚本")
 
     # rework
     prw = sub.add_parser("rework")
